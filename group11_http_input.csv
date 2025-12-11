@@ -1,0 +1,131 @@
+msg_id,app_protocol,src_app,dst_app,message,timestamp
+1,HTTP,client_browser,web_server,GET /logo.png,0.01679
+2,HTTP,web_server,client_browser,HTTP/1.1 404 Not Found,0.032564
+3,HTTP,client_browser,web_server,GET /about,0.045889
+4,HTTP,web_server,client_browser,HTTP/1.1 500 Server Error,0.063629
+5,HTTP,client_browser,web_server,GET /about,0.083447
+6,HTTP,web_server,client_browser,HTTP/1.1 404 Not Found,0.100035
+7,HTTP,client_browser,web_server,GET /index.html,0.112379
+8,HTTP,web_server,client_browser,HTTP/1.1 301 Moved,0.119975
+9,HTTP,client_browser,web_server,GET /api/data,0.129314
+10,HTTP,web_server,client_browser,HTTP/1.1 301 Moved,0.142624
+11,HTTP,client_browser,web_server,GET /index.html,0.148811
+12,HTTP,web_server,client_browser,HTTP/1.1 301 Moved,0.16037
+13,HTTP,client_browser,web_server,GET /logo.png,0.167972
+14,HTTP,web_server,client_browser,HTTP/1.1 301 Moved,0.169486
+15,HTTP,client_browser,web_server,GET /index.html,0.184455
+16,HTTP,web_server,client_browser,HTTP/1.1 200 OK,0.197311
+17,HTTP,client_browser,web_server,GET /about,0.204892
+18,HTTP,web_server,client_browser,HTTP/1.1 404 Not Found,0.20929
+19,HTTP,client_browser,web_server,GET /about,0.21626
+20,HTTP,web_server,client_browser,HTTP/1.1 200 OK,0.226588
+21,HTTP,client_browser,web_server,GET /contact,0.229833
+22,HTTP,web_server,client_browser,HTTP/1.1 500 Server Error,0.247798
+23,HTTP,client_browser,web_server,GET /api/data,0.255882
+24,HTTP,web_server,client_browser,HTTP/1.1 404 Not Found,0.257366
+25,HTTP,client_browser,web_server,GET /logo.png,0.261658
+26,HTTP,web_server,client_browser,HTTP/1.1 200 OK,0.276739
+27,HTTP,client_browser,web_server,GET /about,0.291632
+28,HTTP,web_server,client_browser,HTTP/1.1 301 Moved,0.305733
+29,HTTP,client_browser,web_server,GET /index.html,0.32332
+30,HTTP,web_server,client_browser,HTTP/1.1 404 Not Found,0.3321
+31,HTTP,client_browser,web_server,GET /contact,0.343296
+32,HTTP,web_server,client_browser,HTTP/1.1 500 Server Error,0.345593
+33,HTTP,client_browser,web_server,GET /about,0.349484
+34,HTTP,web_server,client_browser,HTTP/1.1 404 Not Found,0.366378
+35,HTTP,client_browser,web_server,GET /api/data,0.373517
+36,HTTP,web_server,client_browser,HTTP/1.1 500 Server Error,0.381171
+37,HTTP,client_browser,web_server,GET /api/data,0.386244
+38,HTTP,web_server,client_browser,HTTP/1.1 500 Server Error,0.390545
+39,HTTP,client_browser,web_server,GET /index.html,0.400519
+40,HTTP,web_server,client_browser,HTTP/1.1 301 Moved,0.412465
+41,HTTP,client_browser,web_server,GET /index.html,0.417078
+42,HTTP,web_server,client_browser,HTTP/1.1 301 Moved,0.424428
+43,HTTP,client_browser,web_server,GET /index.html,0.436
+44,HTTP,web_server,client_browser,HTTP/1.1 200 OK,0.445489
+45,HTTP,client_browser,web_server,GET /about,0.456709
+46,HTTP,web_server,client_browser,HTTP/1.1 500 Server Error,0.475359
+47,HTTP,client_browser,web_server,GET /api/data,0.492029
+48,HTTP,web_server,client_browser,HTTP/1.1 301 Moved,0.493051
+49,HTTP,client_browser,web_server,GET /about,0.511394
+50,HTTP,web_server,client_browser,HTTP/1.1 301 Moved,0.528851
+51,HTTP,client_browser,web_server,GET /logo.png,0.548423
+52,HTTP,web_server,client_browser,HTTP/1.1 200 OK,0.553377
+53,HTTP,client_browser,web_server,GET /about,0.556178
+54,HTTP,web_server,client_browser,HTTP/1.1 200 OK,0.573916
+55,HTTP,client_browser,web_server,GET /about,0.578777
+56,HTTP,web_server,client_browser,HTTP/1.1 301 Moved,0.593274
+57,HTTP,client_browser,web_server,GET /index.html,0.612881
+58,HTTP,web_server,client_browser,HTTP/1.1 500 Server Error,0.629744
+59,HTTP,client_browser,web_server,GET /contact,0.634328
+60,HTTP,web_server,client_browser,HTTP/1.1 500 Server Error,0.653114
+61,HTTP,client_browser,web_server,GET /index.html,0.657889
+62,HTTP,web_server,client_browser,HTTP/1.1 200 OK,0.664444
+63,HTTP,client_browser,web_server,GET /home,0.679419
+64,HTTP,web_server,client_browser,HTTP/1.1 301 Moved,0.695821
+65,HTTP,client_browser,web_server,GET /logo.png,0.71351
+66,HTTP,web_server,client_browser,HTTP/1.1 200 OK,0.714722
+67,HTTP,client_browser,web_server,GET /api/data,0.719252
+68,HTTP,web_server,client_browser,HTTP/1.1 200 OK,0.729949
+69,HTTP,client_browser,web_server,GET /api/data,0.736727
+70,HTTP,web_server,client_browser,HTTP/1.1 500 Server Error,0.754039
+71,HTTP,client_browser,web_server,GET /contact,0.767218
+72,HTTP,web_server,client_browser,HTTP/1.1 404 Not Found,0.772833
+73,HTTP,client_browser,web_server,GET /home,0.776445
+74,HTTP,web_server,client_browser,HTTP/1.1 404 Not Found,0.796291
+75,HTTP,client_browser,web_server,GET /index.html,0.814976
+76,HTTP,web_server,client_browser,HTTP/1.1 301 Moved,0.818733
+77,HTTP,client_browser,web_server,GET /home,0.823388
+78,HTTP,web_server,client_browser,HTTP/1.1 404 Not Found,0.832502
+79,HTTP,client_browser,web_server,GET /home,0.834136
+80,HTTP,web_server,client_browser,HTTP/1.1 301 Moved,0.846484
+81,HTTP,client_browser,web_server,GET /contact,0.847577
+82,HTTP,web_server,client_browser,HTTP/1.1 404 Not Found,0.85454
+83,HTTP,client_browser,web_server,GET /contact,0.862747
+84,HTTP,web_server,client_browser,HTTP/1.1 200 OK,0.866789
+85,HTTP,client_browser,web_server,GET /contact,0.872791
+86,HTTP,web_server,client_browser,HTTP/1.1 301 Moved,0.881187
+87,HTTP,client_browser,web_server,GET /about,0.884381
+88,HTTP,web_server,client_browser,HTTP/1.1 500 Server Error,0.895307
+89,HTTP,client_browser,web_server,GET /logo.png,0.910892
+90,HTTP,web_server,client_browser,HTTP/1.1 200 OK,0.914226
+91,HTTP,client_browser,web_server,GET /about,0.930286
+92,HTTP,web_server,client_browser,HTTP/1.1 500 Server Error,0.942509
+93,HTTP,client_browser,web_server,GET /about,0.949596
+94,HTTP,web_server,client_browser,HTTP/1.1 404 Not Found,0.950751
+95,HTTP,client_browser,web_server,GET /api/data,0.952342
+96,HTTP,web_server,client_browser,HTTP/1.1 404 Not Found,0.967661
+97,HTTP,client_browser,web_server,GET /about,0.974572
+98,HTTP,web_server,client_browser,HTTP/1.1 301 Moved,0.992941
+99,HTTP,client_browser,web_server,GET /contact,0.999115
+100,HTTP,web_server,client_browser,HTTP/1.1 404 Not Found,1.014805
+101,HTTP,client_browser,web_server,GET /index.html,1.017798
+102,HTTP,web_server,client_browser,HTTP/1.1 200 OK,1.026394
+103,HTTP,client_browser,web_server,GET /index.html,1.029713
+104,HTTP,web_server,client_browser,HTTP/1.1 200 OK,1.043027
+105,HTTP,client_browser,web_server,GET /contact,1.045681
+106,HTTP,web_server,client_browser,HTTP/1.1 404 Not Found,1.054324
+107,HTTP,client_browser,web_server,GET /logo.png,1.05674
+108,HTTP,web_server,client_browser,HTTP/1.1 301 Moved,1.073301
+109,HTTP,client_browser,web_server,GET /about,1.080743
+110,HTTP,web_server,client_browser,HTTP/1.1 404 Not Found,1.084873
+111,HTTP,client_browser,web_server,GET /logo.png,1.091645
+112,HTTP,web_server,client_browser,HTTP/1.1 500 Server Error,1.102497
+113,HTTP,client_browser,web_server,GET /about,1.114623
+114,HTTP,web_server,client_browser,HTTP/1.1 200 OK,1.120714
+115,HTTP,client_browser,web_server,GET /api/data,1.123126
+116,HTTP,web_server,client_browser,HTTP/1.1 301 Moved,1.124614
+117,HTTP,client_browser,web_server,GET /index.html,1.128519
+118,HTTP,web_server,client_browser,HTTP/1.1 404 Not Found,1.132034
+119,HTTP,client_browser,web_server,GET /about,1.144422
+120,HTTP,web_server,client_browser,HTTP/1.1 301 Moved,1.149271
+121,HTTP,client_browser,web_server,GET /index.html,1.159956
+122,HTTP,web_server,client_browser,HTTP/1.1 301 Moved,1.163373
+123,HTTP,client_browser,web_server,GET /contact,1.175649
+124,HTTP,web_server,client_browser,HTTP/1.1 500 Server Error,1.184622
+125,HTTP,client_browser,web_server,GET /home,1.201492
+126,HTTP,web_server,client_browser,HTTP/1.1 301 Moved,1.218826
+127,HTTP,client_browser,web_server,GET /home,1.224121
+128,HTTP,web_server,client_browser,HTTP/1.1 200 OK,1.23332
+129,HTTP,client_browser,web_server,GET /api/data,1.237156
+130,HTTP,web_server,client_browser,HTTP/1.1 404 Not Found,1.247877

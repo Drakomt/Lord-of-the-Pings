@@ -3,10 +3,16 @@
 # =============================
 import socket
 import threading
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # ====== CHANGE HERE ======
-HOST = '0.0.0.0'   # keep 0.0.0.0 to allow connections from other devices
-PORT = 9000        # make sure this port is open / free
+server_host = os.environ["SERVER_HOST"]
+server_post = int(os.environ["SERVER_PORT"])
+# HOST = '0.0.0.0'   # keep 0.0.0.0 to allow connections from other devices
+# PORT = 9000        # make sure this port is open / free
 # =========================
 
 clients = {}       # socket -> username
@@ -61,10 +67,10 @@ def handle_client(client_socket, address):
 def main():
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    server_socket.bind((HOST, PORT))
+    server_socket.bind((server_host, server_post))
     server_socket.listen()
 
-    print(f"[*] Server listening on {HOST}:{PORT}")
+    print(f"[*] Server listening on {server_host}:{server_post}")
 
     while True:
         client_socket, address = server_socket.accept()

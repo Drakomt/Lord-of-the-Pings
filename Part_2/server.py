@@ -1,86 +1,152 @@
-# =============================
-# server.py – TCP Chat Server (with usernames & join/leave)
-# =============================
+# server.py
+# TCP Chat Server with CustomTkinter GUI
+# - Shows online users
+# - Allows disconnecting users by click
+# - Clean, readable, modern UI
+
 import socket
 import threading
 import os
+import customtkinter as ctk
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# ====== CHANGE HERE ======
-server_host = os.environ["SERVER_HOST"]
-server_post = int(os.environ["SERVER_PORT"])
-# HOST = '0.0.0.0'   # keep 0.0.0.0 to allow connections from other devices
-# PORT = 9000        # make sure this port is open / free
-# =========================
+# ====== SERVER CONFIG ======
+SERVER_HOST = os.environ.get("SERVER_HOST", "0.0.0.0")
+SERVER_PORT = int(os.environ.get("SERVER_PORT", 9000))
+# ===========================
 
-clients = {}       # socket -> username
+clients = {}        # socket -> username
 clients_lock = threading.Lock()
 
+# ================= SERVER LOGIC =================
 
 def broadcast(message, sender_socket=None):
-    """Send message to all connected clients except sender"""
     with clients_lock:
         for client in list(clients.keys()):
             if client != sender_socket:
                 try:
-                    client.sendall(message.encode())
+                    client.sendall((message + "\n").encode())
                 except:
-                    clients.pop(client, None)
+                    disconnect_client(client)
+
+
+def disconnect_client(client_socket):
+    with clients_lock:
+        username = clients.pop(client_socket, None)
+    try:
+        client_socket.close()
+    except:
+        pass
+    if username:
+        log(f"[-] {username} disconnected")
+        broadcast(f"*** {username} left the chat ***")
+        update_user_list()
 
 
 def handle_client(client_socket, address):
     try:
-        # First message = username
         username = client_socket.recv(1024).decode().strip()
         if not username:
             client_socket.close()
             return
 
         with clients_lock:
+            if username in clients.values():
+                client_socket.sendall("Username already taken".encode())
+                client_socket.close()
+                return
             clients[client_socket] = username
 
-        print(f"[+] {username} joined from {address}")
+        log(f"[+] {username} joined from {address}")
         broadcast(f"*** {username} joined the chat ***")
+        update_user_list()
 
         while True:
             data = client_socket.recv(1024)
             if not data:
                 break
-
             message = data.decode().strip()
-            formatted = f"[{username}]: {message}"
-            print(formatted)
-            broadcast(formatted, client_socket)
+            broadcast(f"[{username}]: {message}", client_socket)
 
     except:
         pass
     finally:
-        with clients_lock:
-            username = clients.pop(client_socket, 'Unknown')
-        print(f"[-] {username} left the chat")
-        broadcast(f"*** {username} left the chat ***")
-        client_socket.close()
+        disconnect_client(client_socket)
 
 
-def main():
+def server_thread():
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    server_socket.bind((server_host, server_post))
+    server_socket.bind((SERVER_HOST, SERVER_PORT))
     server_socket.listen()
 
-    print(f"[*] Server listening on {server_host}:{server_post}")
+    log(f"[*] Server listening on {SERVER_HOST}:{SERVER_PORT}")
 
     while True:
         client_socket, address = server_socket.accept()
-        thread = threading.Thread(
+        threading.Thread(
             target=handle_client,
             args=(client_socket, address),
             daemon=True
-        )
-        thread.start()
+        ).start()
+
+# ================= GUI =================
+
+ctk.set_appearance_mode("dark")
+ctk.set_default_color_theme("blue")
+
+app = ctk.CTk()
+app.title("TCP Chat Server")
+app.geometry("600x420")
+
+# ----- Layout -----
+frame_left = ctk.CTkFrame(app, width=200, corner_radius=15)
+frame_left.pack(side="left", fill="y", padx=10, pady=10)
+
+frame_right = ctk.CTkFrame(app, corner_radius=15)
+frame_right.pack(side="right", fill="both", expand=True, padx=10, pady=10)
+
+# ----- Online Users -----
+label_users = ctk.CTkLabel(frame_left, text="Online Users", font=("Arial", 16, "bold"))
+label_users.pack(pady=(10, 5))
+
+users_list = ctk.CTkScrollableFrame(frame_left, height=300)
+users_list.pack(fill="both", expand=True, padx=5, pady=5)
+
+# ----- Log -----
+label_log = ctk.CTkLabel(frame_right, text="Server Log", font=("Arial", 16, "bold"))
+label_log.pack(pady=(10, 5))
+
+log_box = ctk.CTkTextbox(frame_right, state="disabled", corner_radius=10)
+log_box.pack(fill="both", expand=True, padx=10, pady=10)
+
+# ================= GUI HELPERS =================
+
+def log(text):
+    log_box.configure(state="normal")
+    log_box.insert("end", text + "\n")
+    log_box.configure(state="disabled")
+    log_box.see("end")
 
 
-if __name__ == '__main__':
-    main()
+def update_user_list():
+    for widget in users_list.winfo_children():
+        widget.destroy()
+
+    with clients_lock:
+        for sock, username in clients.items():
+            btn = ctk.CTkButton(
+                users_list,
+                text=username,
+                fg_color="#E74C3C",
+                hover_color="#C0392B",
+                command=lambda s=sock: disconnect_client(s)
+            )
+            btn.pack(fill="x", padx=5, pady=4)
+
+# ================= START =================
+
+threading.Thread(target=server_thread, daemon=True).start()
+app.mainloop()

@@ -1,5 +1,7 @@
 import socket
 import threading
+import os
+from dotenv import load_dotenv
 from datetime import datetime
 from kivy.app import App
 from kivy.uix.screenmanager import ScreenManager, Screen
@@ -17,6 +19,14 @@ from kivy.graphics import Color, Line, RoundedRectangle
 
 OTHER_COLOR = (239 / 255, 246 / 255, 173 / 255, 1)
 OWN_COLOR = (242 / 255, 235 / 255, 50 / 255, 1)
+
+load_dotenv()
+
+# ====== SERVER CONFIG ======
+HOST = os.environ.get("HOST", "127.0.0.1")
+SERVER_PORT = int(os.environ.get("SERVER_PORT", 9000))
+
+# ====== Screen Design kivy ======
 
 KV = """
 ScreenManager:
@@ -55,7 +65,13 @@ ScreenManager:
                 size_hint_y: None
                 height: self.minimum_height
                 spacing: 30 # Space between the label and the text input
-
+                Label:
+                    id: server_status_lbl
+                    text : "Checking status..."
+                    color: 1, 1, 1, 1
+                    bold: True
+                    halign: "center"
+                    text_size: self.size
                 Label:
                     text: "One chat to rule them all"
                     font_size: "22sp"
@@ -291,8 +307,46 @@ ScreenManager:
                 on_press: root.send_message(message_input.text)
 """
 
+#============ if server online check function =============
+
+def server_online():
+    try:
+        with socket.create_connection((HOST, SERVER_PORT), timeout=1.0) as s:
+            return True
+    except (socket.timeout, ConnectionRefusedError, OSError):
+        return False
+
+
+#============LoginsScreen==================================================
 
 class LoginScreen(Screen):
+    def on_enter(self):
+        # This tells Kivy: "Run self.check_status every 1 second"
+        Clock.schedule_interval(self.check_status, 1)
+
+    def on_leave(self):
+        # Stop checking when the user leaves the login screen to save battery/CPU
+        Clock.unschedule(self.check_status)
+
+    def check_status(self, dt):
+        # We run the actual network logic in a Thread so the UI doesn't "hiccup"
+        threading.Thread(target=self.perform_ping, daemon=True).start()
+
+    def perform_ping(self):
+        # 1. Check the network
+        online = server_online()
+
+        # 2. Update the UI safely on the main thread
+        Clock.schedule_once(lambda dt: self.update_label(online))
+
+    def update_label(self, online):
+        if online:
+            self.ids.server_status_lbl.text = "ONLINE"
+            self.ids.server_status_lbl.color = (0, 1, 0, 1)
+        else:
+            self.ids.server_status_lbl.text = "OFFLINE"
+            self.ids.server_status_lbl.color = (1, 0, 0, 1)
+
     def on_kv_post(self, base_widget):
         ti = self.ids.username_input
         with ti.canvas.after:
@@ -321,6 +375,8 @@ class LoginScreen(Screen):
         main.sock = app.sock
         threading.Thread(target=main.listen_to_server, daemon=True).start()
         self.manager.current = "main"
+
+#============ Main Screen ===============================
 
 
 class MainScreen(Screen):

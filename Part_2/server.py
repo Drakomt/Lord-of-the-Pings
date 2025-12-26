@@ -22,6 +22,7 @@ clients_lock = threading.Lock()
 
 # ================= SERVER LOGIC =================
 
+
 def broadcast(message, sender_socket=None):
     with clients_lock:
         for client in list(clients.keys()):
@@ -30,6 +31,36 @@ def broadcast(message, sender_socket=None):
                     client.sendall((message + "\n").encode())
                 except:
                     disconnect_client(client)
+
+
+def broadcast_user_list():
+    with clients_lock:
+        usernames = list(clients.values())
+    broadcast("USERLIST|" + ",".join(usernames))
+
+
+def send_private(sender_socket, target_username, message):
+    with clients_lock:
+        sender_name = clients.get(sender_socket, "unknown")
+        target_socket = next(
+            (sock for sock, user in clients.items() if user == target_username),
+            None,
+        )
+
+    if not target_socket:
+        try:
+            sender_socket.sendall(
+                (f"*** User {target_username} not found ***\n").encode())
+        except:
+            disconnect_client(sender_socket)
+        return
+
+    payload = f"[PM {sender_name} -> {target_username}]: {message}"
+    for sock in (target_socket, sender_socket):  # echo to sender for context
+        try:
+            sock.sendall((payload + "\n").encode())
+        except:
+            disconnect_client(sock)
 
 
 def disconnect_client(client_socket):
@@ -43,6 +74,7 @@ def disconnect_client(client_socket):
         log(f"[-] {username} disconnected")
         broadcast(f"*** {username} left the chat ***")
         update_user_list()
+        broadcast_user_list()
 
 
 def handle_client(client_socket, address):
@@ -62,12 +94,25 @@ def handle_client(client_socket, address):
         log(f"[+] {username} joined from {address}")
         broadcast(f"*** {username} joined the chat ***")
         update_user_list()
+        broadcast_user_list()
 
         while True:
             data = client_socket.recv(1024)
             if not data:
                 break
             message = data.decode().strip()
+            if message.startswith("@"):  # format: @target message
+                parts = message.split(" ", 1)
+                if len(parts) == 2 and parts[0][1:]:
+                    send_private(client_socket, parts[0][1:], parts[1])
+                else:
+                    try:
+                        client_socket.sendall(
+                            b"*** Invalid private message format. Use @username message ***\n")
+                    except:
+                        disconnect_client(client_socket)
+                continue
+
             broadcast(f"[{username}]: {message}", client_socket)
 
     except:
@@ -94,6 +139,7 @@ def server_thread():
 
 # ================= GUI =================
 
+
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
 
@@ -109,20 +155,23 @@ frame_right = ctk.CTkFrame(app, corner_radius=15)
 frame_right.pack(side="right", fill="both", expand=True, padx=10, pady=10)
 
 # ----- Online Users -----
-label_users = ctk.CTkLabel(frame_left, text="Online Users", font=("Arial", 16, "bold"))
+label_users = ctk.CTkLabel(
+    frame_left, text="Online Users", font=("Arial", 16, "bold"))
 label_users.pack(pady=(10, 5))
 
 users_list = ctk.CTkScrollableFrame(frame_left, height=300)
 users_list.pack(fill="both", expand=True, padx=5, pady=5)
 
 # ----- Log -----
-label_log = ctk.CTkLabel(frame_right, text="Server Log", font=("Arial", 16, "bold"))
+label_log = ctk.CTkLabel(frame_right, text="Server Log",
+                         font=("Arial", 16, "bold"))
 label_log.pack(pady=(10, 5))
 
 log_box = ctk.CTkTextbox(frame_right, state="disabled", corner_radius=10)
 log_box.pack(fill="both", expand=True, padx=10, pady=10)
 
 # ================= GUI HELPERS =================
+
 
 def log(text):
     log_box.configure(state="normal")
@@ -147,6 +196,7 @@ def update_user_list():
             btn.pack(fill="x", padx=5, pady=4)
 
 # ================= START =================
+
 
 threading.Thread(target=server_thread, daemon=True).start()
 app.mainloop()

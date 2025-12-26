@@ -12,6 +12,7 @@ from kivy.uix.label import Label
 from kivy.uix.button import Button
 from kivy.uix.popup import Popup
 from kivy.uix.widget import Widget
+from kivy.uix.scrollview import ScrollView
 from kivy.graphics import Color, Line, RoundedRectangle
 
 OTHER_COLOR = (239 / 255, 246 / 255, 173 / 255, 1)
@@ -20,6 +21,7 @@ OWN_COLOR = (242 / 255, 235 / 255, 50 / 255, 1)
 KV = """
 ScreenManager:
     LoginScreen:
+    MainScreen:
     ChatScreen:
 
 <LoginScreen>:
@@ -87,12 +89,125 @@ ScreenManager:
                 font_size: "20sp"
                 on_press: root.login(username_input.text)
 
+<MainScreen>:
+    name: "main"
+    BoxLayout:
+        orientation: "horizontal"
+
+        # Main content - chat cards
+        BoxLayout:
+            orientation: "vertical"
+            padding: 0
+            spacing: 10
+
+            # Header with Exit button
+            BoxLayout:
+                size_hint_y: None
+                height: 70
+                padding: [15, 10]
+                spacing: 10
+                canvas.before:
+                    Color:
+                        rgba: 0.15, 0.15, 0.15, 1
+                    Rectangle:
+                        pos: self.pos
+                        size: self.size
+
+                Label:
+                    text: "SERVER STATUS: ONLINE"
+                    color: 0.4, 1, 0.4, 1
+                    bold: True
+                    halign: "left"
+                    text_size: self.size
+
+                BoxLayout:
+                    size_hint: (None, None)
+                    size: (85, 45)
+                    pos_hint: {"center_y": 0.5}
+                    canvas.before:
+                        Color:
+                            rgba: 0.8, 0.1, 0.1, 1 
+                        RoundedRectangle:
+                            pos: self.pos
+                            size: self.size
+                            radius: [10]
+
+                    Button:
+                        text: "EXIT"
+                        background_normal: ""
+                        background_color: 0, 0, 0, 0 
+                        color: 1, 1, 1, 1
+                        bold: True
+                        on_press: app.stop()
+
+            Label:
+                text: "Chats"
+                size_hint_y: None
+                height: 35
+                color: 1, 1, 1, 1
+                bold: True
+                font_size: "18sp"
+                halign: "left"
+                padding: 15, 0
+                text_size: self.size
+
+            ScrollView:
+                id: chats_scroll
+                do_scroll_x: False
+                bar_width: 6
+                canvas.before:
+                    Color:
+                        rgba: 0.08, 0.08, 0.08, 1
+                    Rectangle:
+                        pos: self.pos
+                        size: self.size
+
+                BoxLayout:
+                    id: chats_container
+                    orientation: "vertical"
+                    size_hint_y: None
+                    height: self.minimum_height
+                    padding: [15, 10]
+                    spacing: 12
+
+        # Sidebar user list
+        BoxLayout:
+            orientation: "vertical"
+            size_hint_x: 0.28
+            padding: [10, 10]
+            spacing: 10
+            canvas.before:
+                Color:
+                    rgba: 0.1, 0.1, 0.1, 1
+                Rectangle:
+                    pos: self.pos
+                    size: self.size
+
+            Label:
+                text: "Users Online"
+                size_hint_y: None
+                height: 30
+                color: 1, 1, 1, 1
+                bold: True
+
+            ScrollView:
+                id: users_scroll
+                do_scroll_x: False
+
+                BoxLayout:
+                    id: user_list
+                    orientation: "vertical"
+                    size_hint_y: None
+                    height: self.minimum_height
+                    spacing: 8
+                    padding: [0, 5]
+
 <ChatScreen>:
     name: "chat"
     BoxLayout:
         orientation: "vertical"
 
-        # Header with Red container behind Exit button
+        # Header with back button
         BoxLayout:
             size_hint_y: None
             height: 70
@@ -105,36 +220,30 @@ ScreenManager:
                     pos: self.pos
                     size: self.size
 
-            Label:
-                text: "SERVER STATUS: ONLINE"
-                color: 0.4, 1, 0.4, 1
+            Button:
+                text: "←"
+                size_hint: (None, None)
+                size: (50, 45)
+                background_normal: ""
+                background_color: 0.25, 0.25, 0.25, 1
+                color: 1, 1, 1, 1
                 bold: True
+                font_size: "24sp"
+                on_press: root.go_back()
+
+            Label:
+                id: chat_title
+                text: "General Chat"
+                color: 1, 1, 1, 1
+                bold: True
+                font_size: "18sp"
                 halign: "left"
                 text_size: self.size
-
-            BoxLayout:
-                size_hint: (None, None)
-                size: (85, 45)
-                pos_hint: {"center_y": 0.5}
-                canvas.before:
-                    Color:
-                        rgba: 0.8, 0.1, 0.1, 1 
-                    RoundedRectangle:
-                        pos: self.pos
-                        size: self.size
-                        radius: [10]
-
-                Button:
-                    text: "EXIT"
-                    background_normal: ""
-                    background_color: 0, 0, 0, 0 
-                    color: 1, 1, 1, 1
-                    bold: True
-                    on_press: app.stop()
 
         ScrollView:
             id: chat_scroll
             do_scroll_x: False
+            bar_width: 6
             canvas.before:
                 Color:
                     rgba: 0.08, 0.08, 0.08, 1
@@ -155,7 +264,7 @@ ScreenManager:
             size_hint_y: None
             height: 90
             padding: 15
-            spacing: 15
+            spacing: 10
             canvas.before:
                 Color:
                     rgba: 0.2, 0.2, 0.2, 1
@@ -188,7 +297,8 @@ class LoginScreen(Screen):
         ti = self.ids.username_input
         with ti.canvas.after:
             Color(242 / 255, 235 / 255, 50 / 255, 1)
-            self.border_line = Line(rectangle=(ti.x, ti.y, ti.width, ti.height), width=1.5)
+            self.border_line = Line(rectangle=(
+                ti.x, ti.y, ti.width, ti.height), width=1.5)
 
         def update_border(instance, value):
             self.border_line.rectangle = (ti.x, ti.y, ti.width, ti.height)
@@ -196,7 +306,8 @@ class LoginScreen(Screen):
         ti.bind(pos=update_border, size=update_border)
 
     def login(self, username):
-        if not username.strip(): return
+        if not username.strip():
+            return
         app = App.get_running_app()
         try:
             app.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -205,41 +316,232 @@ class LoginScreen(Screen):
         except Exception as e:
             print("Connection error:", e)
             return
-        chat = self.manager.get_screen("chat")
-        chat.username = username
-        chat.sock = app.sock
-        threading.Thread(target=chat.listen_to_server, daemon=True).start()
-        self.manager.current = "chat"
+        main = self.manager.get_screen("main")
+        main.username = username
+        main.sock = app.sock
+        threading.Thread(target=main.listen_to_server, daemon=True).start()
+        self.manager.current = "main"
 
 
-class ChatScreen(Screen):
+class MainScreen(Screen):
     username = StringProperty("")
     sock = None
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.chats = {}  # chat_id -> {messages: [], unread: 0}
+        self.online_users = []
 
     def listen_to_server(self):
         try:
             while True:
                 data = self.sock.recv(1024)
-                if not data: break
+                if not data:
+                    break
                 message = data.decode().strip()
-                Clock.schedule_once(lambda dt, msg=message: self.add_message(msg, is_own=False))
+                if message.startswith("USERLIST|"):
+                    names = [n for n in message.split(
+                        "|", 1)[1].split(",") if n]
+                    Clock.schedule_once(
+                        lambda dt, names=names: self.update_user_buttons(names))
+                else:
+                    Clock.schedule_once(
+                        lambda dt, msg=message: self.route_message(msg))
         except:
             self.on_disconnected()
 
-    def send_message(self, text):
-        if not text.strip(): return
-        self.ids.message_input.text = ""
-        self.add_message(text, is_own=True)
+    def route_message(self, message):
+        chat_id = None
+        if message.startswith("[PM ") and "->" in message:
+            parsed = self.parse_pm(message)
+            if parsed:
+                sender, target, body = parsed
+                chat_id = sender if target == self.username else target
+                message = f"{sender}: {body}"
+        else:
+            chat_id = "general"
+
+        if chat_id not in self.chats:
+            self.chats[chat_id] = {"messages": [], "unread": 0}
+
+        self.chats[chat_id]["messages"].append(
+            {"text": message, "is_own": False})
+        self.chats[chat_id]["unread"] += 1
+        self.update_chat_cards()
+
+    def parse_pm(self, message):
         try:
-            self.sock.sendall(text.encode())
-        except:
-            self.on_disconnected()
+            prefix, body = message.split("]:", 1)
+            body = body.strip()
+            prefix = prefix.strip("[]")
+            _, rest = prefix.split("PM ", 1)
+            sender, target = rest.split("->")
+            return sender.strip(), target.strip(), body
+        except Exception:
+            return None
 
-    def add_message(self, text, is_own=False):
+    def update_user_buttons(self, names):
+        self.online_users = [n for n in names if n and n != self.username]
+        holder = self.ids.user_list
+        holder.clear_widgets()
+        for name in self.online_users:
+            btn = Button(
+                text=name,
+                size_hint_y=None,
+                height=40,
+                background_normal="",
+                background_color=(0.24, 0.24, 0.24, 1),
+                color=(1, 1, 1, 1),
+                bold=True
+            )
+            btn.bind(on_release=lambda inst, n=name: self.open_chat(n))
+            holder.add_widget(btn)
+        self.update_chat_cards()
+
+    def update_chat_cards(self):
+        container = self.ids.chats_container
+        container.clear_widgets()
+
+        # General chat card
+        general_card = self.create_chat_card("General Chat", "general")
+        container.add_widget(general_card)
+
+        # Private chat cards
+        for user in self.online_users:
+            if user in self.chats:
+                private_card = self.create_chat_card(f"Chat with {user}", user)
+                container.add_widget(private_card)
+
+    def create_chat_card(self, title, chat_id):
+        card = BoxLayout(
+            orientation="horizontal",
+            size_hint_y=None,
+            height=80,
+            padding=(15, 10),
+            spacing=15
+        )
+
+        # Card background
+        with card.canvas.before:
+            Color(0.18, 0.18, 0.18, 1)
+            card.bg = RoundedRectangle(
+                radius=[10], pos=card.pos, size=card.size)
+
+        card.bind(pos=lambda inst, v: setattr(inst.bg, "pos", inst.pos),
+                  size=lambda inst, v: setattr(inst.bg, "size", inst.size))
+
+        # Chat info
+        info_box = BoxLayout(orientation="vertical", spacing=5)
+
+        title_label = Label(
+            text=title,
+            color=(1, 1, 1, 1),
+            bold=True,
+            font_size="16sp",
+            halign="left",
+            valign="middle",
+            size_hint_y=None,
+            height=25
+        )
+        title_label.bind(size=lambda inst, val: setattr(
+            inst, "text_size", inst.size))
+
+        unread = self.chats.get(chat_id, {}).get("unread", 0)
+        unread_label = Label(
+            text=f"{unread} new messages" if unread > 0 else "No new messages",
+            color=(0.7, 0.7, 0.7, 1),
+            font_size="12sp",
+            halign="left",
+            valign="middle",
+            size_hint_y=None,
+            height=20
+        )
+        unread_label.bind(size=lambda inst, val: setattr(
+            inst, "text_size", inst.size))
+
+        info_box.add_widget(title_label)
+        info_box.add_widget(unread_label)
+
+        # Make card clickable
+        btn = Button(
+            background_normal="",
+            background_color=(0, 0, 0, 0),
+            on_release=lambda inst: self.open_chat(chat_id)
+        )
+
+        card.add_widget(info_box)
+        card.add_widget(btn)
+
+        return card
+
+    def open_chat(self, chat_id):
+        if chat_id not in self.chats:
+            self.chats[chat_id] = {"messages": [], "unread": 0}
+
+        # Reset unread counter
+        self.chats[chat_id]["unread"] = 0
+        self.update_chat_cards()
+
+        # Navigate to ChatScreen
+        chat_screen = self.manager.get_screen("chat")
+        chat_screen.load_chat(chat_id, self)
+        self.manager.current = "chat"
+
+    def on_disconnected(self):
+        Clock.schedule_once(lambda dt: self.show_disconnect_popup())
+
+    def show_disconnect_popup(self):
+        content = BoxLayout(orientation="vertical", spacing=15, padding=20)
+        content.add_widget(
+            Label(text="Disconnected from server", font_size=16))
+        btn = Button(text="OK", size_hint_y=None, height=45)
+        content.add_widget(btn)
+        popup = Popup(title="Error", content=content,
+                      size_hint=(0.7, 0.3), auto_dismiss=False)
+        btn.bind(on_release=lambda x: self.return_to_login(popup))
+        popup.open()
+
+    def return_to_login(self, popup):
+        popup.dismiss()
+        self.manager.current = "login"
+
+
+class ChatScreen(Screen):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.chat_id = None
+        self.main_screen = None
+
+    def load_chat(self, chat_id, main_screen):
+        self.chat_id = chat_id
+        self.main_screen = main_screen
+
+        # Set title
+        if chat_id == "general":
+            self.ids.chat_title.text = "General Chat"
+        else:
+            self.ids.chat_title.text = f"Chat with {chat_id}"
+
+        # Load messages
+        self.refresh_messages()
+
+    def refresh_messages(self):
+        box = self.ids.chat_box
+        box.clear_widgets()
+
+        if self.chat_id and self.chat_id in self.main_screen.chats:
+            messages = self.main_screen.chats[self.chat_id]["messages"]
+            for msg in messages:
+                self.add_message_bubble(msg["text"], msg["is_own"])
+
+        Clock.schedule_once(lambda dt: self.scroll_to_bottom(), 0.05)
+
+    def add_message_bubble(self, text, is_own):
         bubble_color = OWN_COLOR if is_own else OTHER_COLOR
         time_str = datetime.now().strftime("%H:%M")
 
-        bubble_layout = BoxLayout(orientation='vertical', size_hint=(None, None), padding=(12, 8))
+        bubble_layout = BoxLayout(
+            orientation='vertical', size_hint=(None, None), padding=(12, 8))
 
         msg_label = Label(
             text=text,
@@ -247,7 +549,7 @@ class ChatScreen(Screen):
             size_hint=(None, None),
             halign='left'
         )
-        msg_label.text_size = (self.width * 0.65, None)
+        msg_label.text_size = (self.width * 0.75, None)
 
         def update_msg_size(inst, val):
             inst.size = inst.texture_size
@@ -262,7 +564,8 @@ class ChatScreen(Screen):
             height=15,
             halign='right'
         )
-        time_label.bind(size=lambda inst, val: setattr(inst, 'text_size', (inst.width, None)))
+        time_label.bind(size=lambda inst, val: setattr(
+            inst, 'text_size', (inst.width, None)))
 
         bubble_layout.add_widget(msg_label)
         bubble_layout.add_widget(time_label)
@@ -274,7 +577,8 @@ class ChatScreen(Screen):
         bubble_layout.bind(minimum_size=update_bubble_size)
 
         container = BoxLayout(size_hint_y=None)
-        bubble_layout.bind(height=lambda inst, val: setattr(container, 'height', val))
+        bubble_layout.bind(height=lambda inst,
+                           val: setattr(container, 'height', val))
 
         if is_own:
             container.add_widget(Widget())
@@ -285,33 +589,46 @@ class ChatScreen(Screen):
 
         with bubble_layout.canvas.before:
             Color(*bubble_color)
-            bubble_layout.bg = RoundedRectangle(radius=[12], pos=bubble_layout.pos, size=bubble_layout.size)
+            bubble_layout.bg = RoundedRectangle(
+                radius=[12], pos=bubble_layout.pos, size=bubble_layout.size)
 
         bubble_layout.bind(pos=lambda inst, v: setattr(inst.bg, "pos", inst.pos),
                            size=lambda inst, v: setattr(inst.bg, "size", inst.size))
 
         self.ids.chat_box.add_widget(container)
-        Clock.schedule_once(self.scroll_to_bottom, 0.05)
 
-    def scroll_to_bottom(self, dt):
+    def send_message(self, text):
+        if not text.strip():
+            return
+        self.ids.message_input.text = ""
+
+        outbound = text.strip()
+        if self.chat_id != "general":
+            outbound = f"@{self.chat_id} {outbound}"
+
+        # Add to local chat
+        if self.chat_id not in self.main_screen.chats:
+            self.main_screen.chats[self.chat_id] = {
+                "messages": [], "unread": 0}
+
+        self.main_screen.chats[self.chat_id]["messages"].append(
+            {"text": text.strip(), "is_own": True})
+        self.add_message_bubble(text.strip(), is_own=True)
+
+        # Send to server
+        try:
+            self.main_screen.sock.sendall(outbound.encode())
+        except:
+            self.main_screen.on_disconnected()
+
+        Clock.schedule_once(lambda dt: self.scroll_to_bottom(), 0.05)
+
+    def scroll_to_bottom(self):
         if self.ids.chat_box.height > self.ids.chat_scroll.height:
             self.ids.chat_scroll.scroll_y = 0
 
-    def on_disconnected(self):
-        Clock.schedule_once(lambda dt: self.show_disconnect_popup())
-
-    def show_disconnect_popup(self):
-        content = BoxLayout(orientation="vertical", spacing=15, padding=20)
-        content.add_widget(Label(text="Disconnected from server", font_size=16))
-        btn = Button(text="OK", size_hint_y=None, height=45)
-        content.add_widget(btn)
-        popup = Popup(title="Error", content=content, size_hint=(0.7, 0.3), auto_dismiss=False)
-        btn.bind(on_release=lambda x: self.return_to_login(popup))
-        popup.open()
-
-    def return_to_login(self, popup):
-        popup.dismiss()
-        self.manager.current = "login"
+    def go_back(self):
+        self.manager.current = "main"
 
 
 class ChatApp(App):

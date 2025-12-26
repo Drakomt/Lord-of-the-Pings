@@ -316,7 +316,6 @@ def server_online():
     except (socket.timeout, ConnectionRefusedError, OSError):
         return False
 
-
 #============LoginsScreen==================================================
 
 class LoginScreen(Screen):
@@ -347,6 +346,21 @@ class LoginScreen(Screen):
             self.ids.server_status_lbl.text = "OFFLINE"
             self.ids.server_status_lbl.color = (1, 0, 0, 1)
 
+    def show_server_offline_popup(self):
+        content = BoxLayout(orientation="vertical", spacing=15, padding=20)
+        content.add_widget(
+            Label(text="server is down try again later", font_size=25))
+        btn = Button(text="OK", size_hint_y=None, height=45)
+        content.add_widget(btn)
+        popup = Popup(title="Error", content=content,
+                      size_hint=(0.7, 0.3), auto_dismiss=False)
+        btn.bind(on_release=lambda x: self.return_to_login(popup))
+        popup.open()
+
+    def return_to_login(self, popup):
+        popup.dismiss()
+        self.manager.current = "login"
+
     def on_kv_post(self, base_widget):
         ti = self.ids.username_input
         with ti.canvas.after:
@@ -368,6 +382,7 @@ class LoginScreen(Screen):
             app.sock.connect(("127.0.0.1", 9000))
             app.sock.sendall(username.encode())
         except Exception as e:
+            self.show_server_offline_popup()
             print("Connection error:", e)
             return
         main = self.manager.get_screen("main")
@@ -556,11 +571,9 @@ class MainScreen(Screen):
                       size_hint=(0.7, 0.3), auto_dismiss=False)
         btn.bind(on_release=lambda x: self.return_to_login(popup))
         popup.open()
-
     def return_to_login(self, popup):
         popup.dismiss()
         self.manager.current = "login"
-
 
 class ChatScreen(Screen):
     def __init__(self, **kwargs):

@@ -129,10 +129,8 @@ ScreenManager:
                         pos: self.pos
                         size: self.size
 
-                Label:
-                    text: "SERVER STATUS: ONLINE"
+                Label:    # space label to align exit to the right
                     color: 0.4, 1, 0.4, 1
-                    bold: True
                     halign: "left"
                     text_size: self.size
 
@@ -154,12 +152,12 @@ ScreenManager:
                         background_color: 0, 0, 0, 0 
                         color: 1, 1, 1, 1
                         bold: True
-                        on_press: app.stop()
+                        on_press: root.Exit_to_login()
 
             Label:
                 text: "Chats"
                 size_hint_y: None
-                height: 35
+                height: 50
                 color: 1, 1, 1, 1
                 bold: True
                 font_size: "18sp"
@@ -237,9 +235,9 @@ ScreenManager:
                     size: self.size
 
             Button:
-                text: "←"
+                text: "<--"
                 size_hint: (None, None)
-                size: (50, 45)
+                size: (80, 45)
                 background_normal: ""
                 background_color: 0.25, 0.25, 0.25, 1
                 color: 1, 1, 1, 1
@@ -392,12 +390,64 @@ class LoginScreen(Screen):
         self.manager.current = "main"
 
 #============ Main Screen ===============================
+from kivy.uix.behaviors import ButtonBehavior
+from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.label import Label
+from kivy.graphics import Color, RoundedRectangle
+
+class ChatCard(ButtonBehavior, BoxLayout):
+    def __init__(self, title, chat_id, parent_with_open_chat, unread=0, **kwargs):
+        super().__init__(orientation="horizontal", size_hint_y=None, height=80, padding=(15, 10), spacing=15, **kwargs)
+        self.chat_id = chat_id
+
+        # Background
+        with self.canvas.before:
+            Color(0.18, 0.18, 0.18, 1)
+            self.bg = RoundedRectangle(radius=[10], pos=self.pos, size=self.size)
+
+        self.bind(pos=lambda inst, val: setattr(self.bg, "pos", inst.pos),
+                  size=lambda inst, val: setattr(self.bg, "size", inst.size))
+
+        # Chat info
+        info_box = BoxLayout(orientation="vertical", spacing=5)
+
+        title_label = Label(
+            text=title,
+            color=(1, 1, 1, 1),
+            bold=True,
+            font_size="16sp",
+            halign="left",
+            valign="middle",
+            size_hint_y=None,
+            height=25
+        )
+        title_label.bind(size=lambda inst, val: setattr(inst, "text_size", inst.size))
+
+        unread_label = Label(
+            text=f"{unread} new messages" if unread > 0 else "No new messages",
+            color=(0.7, 0.7, 0.7, 1),
+            font_size="12sp",
+            halign="left",
+            valign="middle",
+            size_hint_y=None,
+            height=20
+        )
+        unread_label.bind(size=lambda inst, val: setattr(inst, "text_size", inst.size))
+
+        info_box.add_widget(title_label)
+        info_box.add_widget(unread_label)
+        self.add_widget(info_box)
+
+        # Bind click using the parent reference
+        self.bind(on_release=lambda inst: parent_with_open_chat.open_chat(chat_id))
+
 
 
 class MainScreen(Screen):
     username = StringProperty("")
     sock = None
-
+    def Exit_to_login(self):
+        self.manager.current = "login"
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.chats = {}  # chat_id -> {messages: [], unread: 0}
@@ -484,66 +534,8 @@ class MainScreen(Screen):
                 container.add_widget(private_card)
 
     def create_chat_card(self, title, chat_id):
-        card = BoxLayout(
-            orientation="horizontal",
-            size_hint_y=None,
-            height=80,
-            padding=(15, 10),
-            spacing=15
-        )
-
-        # Card background
-        with card.canvas.before:
-            Color(0.18, 0.18, 0.18, 1)
-            card.bg = RoundedRectangle(
-                radius=[10], pos=card.pos, size=card.size)
-
-        card.bind(pos=lambda inst, v: setattr(inst.bg, "pos", inst.pos),
-                  size=lambda inst, v: setattr(inst.bg, "size", inst.size))
-
-        # Chat info
-        info_box = BoxLayout(orientation="vertical", spacing=5)
-
-        title_label = Label(
-            text=title,
-            color=(1, 1, 1, 1),
-            bold=True,
-            font_size="16sp",
-            halign="left",
-            valign="middle",
-            size_hint_y=None,
-            height=25
-        )
-        title_label.bind(size=lambda inst, val: setattr(
-            inst, "text_size", inst.size))
-
         unread = self.chats.get(chat_id, {}).get("unread", 0)
-        unread_label = Label(
-            text=f"{unread} new messages" if unread > 0 else "No new messages",
-            color=(0.7, 0.7, 0.7, 1),
-            font_size="12sp",
-            halign="left",
-            valign="middle",
-            size_hint_y=None,
-            height=20
-        )
-        unread_label.bind(size=lambda inst, val: setattr(
-            inst, "text_size", inst.size))
-
-        info_box.add_widget(title_label)
-        info_box.add_widget(unread_label)
-
-        # Make card clickable
-        btn = Button(
-            background_normal="",
-            background_color=(0, 0, 0, 0),
-            on_release=lambda inst: self.open_chat(chat_id)
-        )
-
-        card.add_widget(info_box)
-        card.add_widget(btn)
-
-        return card
+        return ChatCard(title, chat_id, parent_with_open_chat=self, unread=unread)
 
     def open_chat(self, chat_id):
         if chat_id not in self.chats:

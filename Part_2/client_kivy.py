@@ -1,3 +1,5 @@
+from kivy.graphics import Color, RoundedRectangle
+from kivy.uix.behaviors import ButtonBehavior
 import socket
 import threading
 import os
@@ -19,6 +21,8 @@ from kivy.graphics import Color, Line, RoundedRectangle
 
 OTHER_COLOR = (239 / 255, 246 / 255, 173 / 255, 1)
 OWN_COLOR = (242 / 255, 235 / 255, 50 / 255, 1)
+# Light blue for system messages
+SYSTEM_COLOR = (100 / 255, 150 / 255, 200 / 255, 1)
 
 load_dotenv()
 
@@ -305,7 +309,8 @@ ScreenManager:
                 on_press: root.send_message(message_input.text)
 """
 
-#============ if server online check function =============
+# ============ if server online check function =============
+
 
 def server_online():
     try:
@@ -314,7 +319,8 @@ def server_online():
     except (socket.timeout, ConnectionRefusedError, OSError):
         return False
 
-#============LoginsScreen==================================================
+# ============LoginsScreen==================================================
+
 
 class LoginScreen(Screen):
     def on_enter(self):
@@ -389,21 +395,21 @@ class LoginScreen(Screen):
         threading.Thread(target=main.listen_to_server, daemon=True).start()
         self.manager.current = "main"
 
-#============ Main Screen ===============================
-from kivy.uix.behaviors import ButtonBehavior
-from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.label import Label
-from kivy.graphics import Color, RoundedRectangle
+
+# ============ Main Screen ===============================
+
 
 class ChatCard(ButtonBehavior, BoxLayout):
     def __init__(self, title, chat_id, parent_with_open_chat, unread=0, **kwargs):
-        super().__init__(orientation="horizontal", size_hint_y=None, height=80, padding=(15, 10), spacing=15, **kwargs)
+        super().__init__(orientation="horizontal", size_hint_y=None,
+                         height=80, padding=(15, 10), spacing=15, **kwargs)
         self.chat_id = chat_id
 
         # Background
         with self.canvas.before:
             Color(0.18, 0.18, 0.18, 1)
-            self.bg = RoundedRectangle(radius=[10], pos=self.pos, size=self.size)
+            self.bg = RoundedRectangle(
+                radius=[10], pos=self.pos, size=self.size)
 
         self.bind(pos=lambda inst, val: setattr(self.bg, "pos", inst.pos),
                   size=lambda inst, val: setattr(self.bg, "size", inst.size))
@@ -421,7 +427,8 @@ class ChatCard(ButtonBehavior, BoxLayout):
             size_hint_y=None,
             height=25
         )
-        title_label.bind(size=lambda inst, val: setattr(inst, "text_size", inst.size))
+        title_label.bind(size=lambda inst, val: setattr(
+            inst, "text_size", inst.size))
 
         unread_label = Label(
             text=f"{unread} new messages" if unread > 0 else "No new messages",
@@ -432,7 +439,8 @@ class ChatCard(ButtonBehavior, BoxLayout):
             size_hint_y=None,
             height=20
         )
-        unread_label.bind(size=lambda inst, val: setattr(inst, "text_size", inst.size))
+        unread_label.bind(size=lambda inst, val: setattr(
+            inst, "text_size", inst.size))
 
         info_box.add_widget(title_label)
         info_box.add_widget(unread_label)
@@ -442,12 +450,13 @@ class ChatCard(ButtonBehavior, BoxLayout):
         self.bind(on_release=lambda inst: parent_with_open_chat.open_chat(chat_id))
 
 
-
 class MainScreen(Screen):
     username = StringProperty("")
     sock = None
+
     def Exit_to_login(self):
         self.manager.current = "login"
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.chats = {}  # chat_id -> {messages: [], unread: 0}
@@ -473,21 +482,52 @@ class MainScreen(Screen):
 
     def route_message(self, message):
         chat_id = None
+        is_self_sender = False
         if message.startswith("[PM ") and "->" in message:
             parsed = self.parse_pm(message)
             if parsed:
                 sender, target, body = parsed
+                is_self_sender = (sender.strip() == self.username.strip())
                 chat_id = sender if target == self.username else target
                 message = f"{sender}: {body}"
         else:
             chat_id = "general"
+            try:
+                # Typical format: "<username>: <body>" in general chat
+                is_self_sender = message.startswith(f"{self.username}:")
+            except Exception:
+                is_self_sender = False
 
         if chat_id not in self.chats:
             self.chats[chat_id] = {"messages": [], "unread": 0}
 
+        # If this is my own message echoed by the server, skip to avoid duplicate
+        if is_self_sender:
+            # Still refresh cards to keep UI consistent
+            self.update_chat_cards()
+            return
+
+        # Append the incoming message
         self.chats[chat_id]["messages"].append(
             {"text": message, "is_own": False})
-        self.chats[chat_id]["unread"] += 1
+
+        # If the chat is currently open, push the bubble live and avoid counting as unread
+        try:
+            chat_screen = self.manager.get_screen("chat")
+            if self.manager.current == "chat" and chat_screen.chat_id == chat_id:
+                # Ensure unread stays 0 for the open chat
+                self.chats[chat_id]["unread"] = 0
+                chat_screen.add_message_bubble(message, is_own=False)
+                Clock.schedule_once(
+                    lambda dt: chat_screen.scroll_to_bottom(), 0.05)
+            else:
+                # Not currently viewing this chat -> mark as unread
+                self.chats[chat_id]["unread"] += 1
+        except Exception:
+            # Fallback: if screen not ready, count as unread
+            self.chats[chat_id]["unread"] += 1
+
+        # Refresh cards to reflect unread changes
         self.update_chat_cards()
 
     def parse_pm(self, message):
@@ -563,9 +603,11 @@ class MainScreen(Screen):
                       size_hint=(0.7, 0.3), auto_dismiss=False)
         btn.bind(on_release=lambda x: self.return_to_login(popup))
         popup.open()
+
     def return_to_login(self, popup):
         popup.dismiss()
         self.manager.current = "login"
+
 
 class ChatScreen(Screen):
     def __init__(self, **kwargs):
@@ -598,6 +640,18 @@ class ChatScreen(Screen):
         Clock.schedule_once(lambda dt: self.scroll_to_bottom(), 0.05)
 
     def add_message_bubble(self, text, is_own):
+        # Check if this is a system message (user joined/left)
+        is_system_message = (
+            "has joined the chat" in text or
+            "has left the chat" in text or
+            text.startswith("***")
+        )
+
+        if is_system_message:
+            # Create centered system message
+            self.add_system_message(text)
+            return
+
         bubble_color = OWN_COLOR if is_own else OTHER_COLOR
         time_str = datetime.now().strftime("%H:%M")
 
@@ -610,12 +664,21 @@ class ChatScreen(Screen):
             size_hint=(None, None),
             halign='left'
         )
-        msg_label.text_size = (self.width * 0.75, None)
 
         def update_msg_size(inst, val):
             inst.size = inst.texture_size
 
         msg_label.bind(texture_size=update_msg_size)
+
+        # Defer text_size until layout is ready to avoid 0-width wrap
+        def set_text_size(_dt=None, width=None):
+            w = width if width is not None else self.ids.chat_box.width * 0.75
+            msg_label.text_size = (max(10, w), None)
+
+        # Initial scheduling and live binding to container width
+        Clock.schedule_once(set_text_size, 0)
+        self.ids.chat_box.bind(
+            width=lambda inst, val: set_text_size(width=val * 0.75))
 
         time_label = Label(
             text=time_str,
@@ -655,6 +718,90 @@ class ChatScreen(Screen):
 
         bubble_layout.bind(pos=lambda inst, v: setattr(inst.bg, "pos", inst.pos),
                            size=lambda inst, v: setattr(inst.bg, "size", inst.size))
+
+        self.ids.chat_box.add_widget(container)
+
+    def add_system_message(self, text):
+        """Add a centered system message with different styling"""
+        time_str = datetime.now().strftime("%H:%M")
+
+        # Create centered container
+        container = BoxLayout(
+            size_hint_y=None,
+            height=50,
+            padding=(10, 5)
+        )
+
+        # Create system message bubble
+        bubble_layout = BoxLayout(
+            orientation='vertical',
+            size_hint=(None, None),
+            padding=(15, 8),
+            pos_hint={'center_x': 0.5}
+        )
+
+        msg_label = Label(
+            text=text,
+            color=(1, 1, 1, 1),  # White text for system messages
+            size_hint=(None, None),
+            halign='center',
+            italic=True,
+            font_size='12sp'
+        )
+
+        def update_msg_size(inst, val):
+            inst.size = inst.texture_size
+
+        msg_label.bind(texture_size=update_msg_size)
+
+        # Defer text_size until layout is ready to avoid 0-width wrap
+        def set_text_size(_dt=None, width=None):
+            w = width if width is not None else self.ids.chat_box.width * 0.6
+            msg_label.text_size = (max(10, w), None)
+
+        # Initial scheduling and live binding to container width
+        Clock.schedule_once(set_text_size, 0)
+        self.ids.chat_box.bind(
+            width=lambda inst, val: set_text_size(width=val * 0.6))
+
+        time_label = Label(
+            text=time_str,
+            color=(1, 1, 1, 0.5),
+            font_size='9sp',
+            size_hint=(1, None),
+            height=12,
+            halign='center'
+        )
+        time_label.bind(size=lambda inst, val: setattr(
+            inst, 'text_size', (inst.width, None)))
+
+        bubble_layout.add_widget(msg_label)
+        bubble_layout.add_widget(time_label)
+
+        def update_bubble_size(inst, val):
+            inst.width = msg_label.width + 30
+            inst.height = msg_label.height + time_label.height + 15
+
+        bubble_layout.bind(minimum_size=update_bubble_size)
+
+        # Add spacers to center the bubble
+        container.add_widget(Widget())
+        container.add_widget(bubble_layout)
+        container.add_widget(Widget())
+
+        # Set background color for system message
+        with bubble_layout.canvas.before:
+            Color(*SYSTEM_COLOR)
+            bubble_layout.bg = RoundedRectangle(
+                radius=[12],
+                pos=bubble_layout.pos,
+                size=bubble_layout.size
+            )
+
+        bubble_layout.bind(
+            pos=lambda inst, v: setattr(inst.bg, "pos", inst.pos),
+            size=lambda inst, v: setattr(inst.bg, "size", inst.size)
+        )
 
         self.ids.chat_box.add_widget(container)
 

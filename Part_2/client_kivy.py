@@ -133,15 +133,11 @@ ScreenManager:
                         pos: self.pos
                         size: self.size
 
-                Label:    # space label to align exit to the right
-                    color: 0.4, 1, 0.4, 1
-                    halign: "left"
-                    text_size: self.size
-
                 BoxLayout:
                     size_hint: (None, None)
                     size: (85, 45)
                     pos_hint: {"center_y": 0.5}
+                    halign: "left"
                     canvas.before:
                         Color:
                             rgba: 0.8, 0.1, 0.1, 1 
@@ -157,6 +153,15 @@ ScreenManager:
                         color: 1, 1, 1, 1
                         bold: True
                         on_press: root.Exit_to_login()
+
+                Label:
+                    id: current_user_lbl
+                    text: "User:"
+                    color: 1, 1, 1, 1
+                    bold: True
+                    font_size: "18sp"
+                    halign: "right"
+                    text_size: self.size
 
             Label:
                 text: "Chats"
@@ -256,6 +261,15 @@ ScreenManager:
                 bold: True
                 font_size: "18sp"
                 halign: "left"
+                text_size: self.size
+
+            Label:
+                id: current_user_lbl
+                text: "User:"
+                color: 1, 1, 1, 1
+                bold: True
+                font_size: "18sp"
+                halign: "right"
                 text_size: self.size
 
         ScrollView:
@@ -361,6 +375,17 @@ class LoginScreen(Screen):
         btn.bind(on_release=lambda x: self.return_to_login(popup))
         popup.open()
 
+    def show_username_taken_popup(self):
+        content = BoxLayout(orientation="vertical", spacing=15, padding=20)
+        content.add_widget(
+            Label(text="Username already taken. Please choose another.", font_size=22))
+        btn = Button(text="OK", size_hint_y=None, height=45)
+        content.add_widget(btn)
+        popup = Popup(title="Username Error", content=content,
+                      size_hint=(0.7, 0.3), auto_dismiss=False)
+        btn.bind(on_release=lambda x: popup.dismiss())
+        popup.open()
+
     def return_to_login(self, popup):
         popup.dismiss()
         self.manager.current = "login"
@@ -381,17 +406,62 @@ class LoginScreen(Screen):
         if not username.strip():
             return
         app = App.get_running_app()
+        prebuffer = b""
         try:
             app.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            app.sock.connect(("127.0.0.1", 9000))
+            app.sock.connect((HOST, SERVER_PORT))
             app.sock.sendall(username.encode())
+
+            # Short wait to capture immediate server response (e.g., username taken)
+            app.sock.settimeout(1.0)
+            try:
+                prebuffer = app.sock.recv(1024)
+            except socket.timeout:
+                prebuffer = b""
+            finally:
+                # Return socket to blocking mode for listener thread
+                app.sock.settimeout(None)
         except Exception as e:
             self.show_server_offline_popup()
             print("Connection error:", e)
             return
+
+        # Handle immediate username-taken response
+        if prebuffer:
+            premsg = prebuffer.decode(errors="ignore").strip()
+            if "Username already taken" in premsg:
+                try:
+                    app.sock.close()
+                except Exception:
+                    pass
+                app.sock = None
+                self.show_username_taken_popup()
+                return
+
+        # Success path: transition to main and preserve any pre-received messages
         main = self.manager.get_screen("main")
+        main.reset_chat_data()
         main.username = username
         main.sock = app.sock
+
+        # If we received non-error data (like USERLIST| or join messages), feed it in
+        if prebuffer:
+            for line in premsg.splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                if line.startswith("USERLIST|"):
+                    try:
+                        names = [n for n in line.split(
+                            "|", 1)[1].split(",") if n]
+                    except Exception:
+                        names = []
+                    Clock.schedule_once(
+                        lambda dt, names=names: main.update_user_buttons(names))
+                else:
+                    Clock.schedule_once(
+                        lambda dt, m=line: main.route_message(m))
+
         threading.Thread(target=main.listen_to_server, daemon=True).start()
         self.manager.current = "main"
 
@@ -454,7 +524,25 @@ class MainScreen(Screen):
     username = StringProperty("")
     sock = None
 
+    def disconnect_socket(self):
+        """Properly disconnect the socket from the server"""
+        if self.sock:
+            try:
+                self.sock.close()
+            except:
+                pass
+            self.sock = None
+
+    def reset_chat_data(self):
+        """Clear all chat history and user list for new login"""
+        self.chats = {}
+        self.online_users = []
+        self.ids.chats_container.clear_widgets()
+        self.ids.user_list.clear_widgets()
+
     def Exit_to_login(self):
+        self.disconnect_socket()
+        self.reset_chat_data()
         self.manager.current = "login"
 
     def __init__(self, **kwargs):
@@ -545,6 +633,7 @@ class MainScreen(Screen):
         self.online_users = [n for n in names if n and n != self.username]
         holder = self.ids.user_list
         holder.clear_widgets()
+        self.ids.current_user_lbl.text = f"User: {self.username}"
         for name in self.online_users:
             btn = Button(
                 text=name,
@@ -623,8 +712,8 @@ class ChatScreen(Screen):
         if chat_id == "general":
             self.ids.chat_title.text = "General Chat"
         else:
-            self.ids.chat_title.text = f"Chat with {chat_id}"
-
+            self.ids.chat_title.text = f"{chat_id}"
+        self.ids.current_user_lbl.text = f"User: {main_screen.username}"
         # Load messages
         self.refresh_messages()
 

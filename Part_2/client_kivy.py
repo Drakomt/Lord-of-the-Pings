@@ -22,7 +22,7 @@ from kivy.graphics import Color, Line, RoundedRectangle
 OTHER_COLOR = (239 / 255, 246 / 255, 173 / 255, 1)
 OWN_COLOR = (242 / 255, 235 / 255, 50 / 255, 1)
 # Light blue for system messages
-SYSTEM_COLOR = (100 / 255, 150 / 255, 200 / 255, 1)
+SYSTEM_COLOR = (1, 1, 1, 0)
 
 load_dotenv()
 
@@ -571,20 +571,30 @@ class MainScreen(Screen):
     def route_message(self, message):
         chat_id = None
         is_self_sender = False
+        username = ""
+        body = message
+
         if message.startswith("[PM ") and "->" in message:
             parsed = self.parse_pm(message)
             if parsed:
                 sender, target, body = parsed
-                is_self_sender = (sender.strip() == self.username.strip())
+                username = sender.strip()
+                is_self_sender = (username == self.username.strip())
                 chat_id = sender if target == self.username else target
-                message = f"{sender}: {body}"
         else:
             chat_id = "general"
-            try:
-                # Typical format: "<username>: <body>" in general chat
-                is_self_sender = message.startswith(f"{self.username}:")
-            except Exception:
-                is_self_sender = False
+            # Parse "username: body" format
+            if ":" in message:
+                try:
+                    username, body = message.split(":", 1)
+                    username = username.strip()
+                    body = body.strip()
+                    is_self_sender = (username == self.username)
+                except Exception:
+                    username = "Unknown"
+                    is_self_sender = False
+            else:
+                username = "Unknown"
 
         if chat_id not in self.chats:
             self.chats[chat_id] = {"messages": [], "unread": 0}
@@ -595,9 +605,9 @@ class MainScreen(Screen):
             self.update_chat_cards()
             return
 
-        # Append the incoming message
+        # Append the incoming message with separated username and body
         self.chats[chat_id]["messages"].append(
-            {"text": message, "is_own": False})
+            {"username": username, "text": body, "is_own": False})
 
         # If the chat is currently open, push the bubble live and avoid counting as unread
         try:
@@ -605,7 +615,7 @@ class MainScreen(Screen):
             if self.manager.current == "chat" and chat_screen.chat_id == chat_id:
                 # Ensure unread stays 0 for the open chat
                 self.chats[chat_id]["unread"] = 0
-                chat_screen.add_message_bubble(message, is_own=False)
+                chat_screen.add_message_bubble(username, body, is_own=False)
                 Clock.schedule_once(
                     lambda dt: chat_screen.scroll_to_bottom(), 0.05)
             else:
@@ -630,7 +640,33 @@ class MainScreen(Screen):
             return None
 
     def update_user_buttons(self, names):
+        # Store previous online users to detect disconnections
+        previous_users = set(self.online_users)
         self.online_users = [n for n in names if n and n != self.username]
+        current_users = set(self.online_users)
+
+        # Detect users who disconnected
+        disconnected_users = previous_users - current_users
+
+        # Handle disconnections for users with active private chats
+        for user in disconnected_users:
+            if user in self.chats:
+                # Show popup notification
+                self.show_user_disconnected_popup(user)
+
+                # Check if user is currently viewing this chat
+                try:
+                    chat_screen = self.manager.get_screen("chat")
+                    if self.manager.current == "chat" and chat_screen.chat_id == user:
+                        # Navigate back to main screen
+                        Clock.schedule_once(lambda dt: setattr(
+                            self.manager, 'current', 'main'), 0.5)
+                except Exception:
+                    pass
+
+                # Remove the chat
+                self.remove_chat(user)
+
         holder = self.ids.user_list
         holder.clear_widgets()
         self.ids.current_user_lbl.text = f"User: {self.username}"
@@ -659,7 +695,7 @@ class MainScreen(Screen):
         # Private chat cards
         for user in self.online_users:
             if user in self.chats:
-                private_card = self.create_chat_card(f"Chat with {user}", user)
+                private_card = self.create_chat_card(f"{user}", user)
                 container.add_widget(private_card)
 
     def create_chat_card(self, title, chat_id):
@@ -693,6 +729,24 @@ class MainScreen(Screen):
         btn.bind(on_release=lambda x: self.return_to_login(popup))
         popup.open()
 
+    def show_user_disconnected_popup(self, username):
+        """Show popup when a user in a private chat disconnects"""
+        content = BoxLayout(orientation="vertical", spacing=15, padding=20)
+        content.add_widget(
+            Label(text=f"{username} has disconnected", font_size=16))
+        btn = Button(text="OK", size_hint_y=None, height=45)
+        content.add_widget(btn)
+        popup = Popup(title="User Disconnected", content=content,
+                      size_hint=(0.7, 0.3), auto_dismiss=False)
+        btn.bind(on_release=lambda x: popup.dismiss())
+        popup.open()
+
+    def remove_chat(self, chat_id):
+        """Remove a chat from the chats dictionary and update UI"""
+        if chat_id in self.chats:
+            del self.chats[chat_id]
+        self.update_chat_cards()
+
     def return_to_login(self, popup):
         popup.dismiss()
         self.manager.current = "login"
@@ -724,15 +778,18 @@ class ChatScreen(Screen):
         if self.chat_id and self.chat_id in self.main_screen.chats:
             messages = self.main_screen.chats[self.chat_id]["messages"]
             for msg in messages:
-                self.add_message_bubble(msg["text"], msg["is_own"])
+                username = msg.get("username", "Unknown")
+                text = msg.get("text", "")
+                is_own = msg.get("is_own", False)
+                self.add_message_bubble(username, text, is_own)
 
         Clock.schedule_once(lambda dt: self.scroll_to_bottom(), 0.05)
 
-    def add_message_bubble(self, text, is_own):
+    def add_message_bubble(self, username, text, is_own):
         # Check if this is a system message (user joined/left)
         is_system_message = (
-            "has joined the chat" in text or
-            "has left the chat" in text or
+            "joined the chat" in text or
+            "left the chat" in text or
             text.startswith("***")
         )
 
@@ -745,8 +802,25 @@ class ChatScreen(Screen):
         time_str = datetime.now().strftime("%H:%M")
 
         bubble_layout = BoxLayout(
-            orientation='vertical', size_hint=(None, None), padding=(12, 8))
+            orientation='vertical', size_hint=(None, None), padding=(12, 8), spacing=5)
 
+        # Username label
+        username_label = Label(
+            text=username,
+            color=(0, 0, 0, 0.6),
+            size_hint=(None, None),
+            halign='left',
+            font_size='11sp',
+            bold=True
+        )
+
+        def update_username_size(inst, val):
+            inst.size = inst.texture_size
+
+        username_label.bind(texture_size=update_username_size)
+        username_label.text_size = (None, None)
+
+        # Message label
         msg_label = Label(
             text=text,
             color=(0, 0, 0, 1),
@@ -769,6 +843,7 @@ class ChatScreen(Screen):
         self.ids.chat_box.bind(
             width=lambda inst, val: set_text_size(width=val * 0.75))
 
+        # Time label
         time_label = Label(
             text=time_str,
             color=(0, 0, 0, 0.4),
@@ -780,12 +855,13 @@ class ChatScreen(Screen):
         time_label.bind(size=lambda inst, val: setattr(
             inst, 'text_size', (inst.width, None)))
 
+        bubble_layout.add_widget(username_label)
         bubble_layout.add_widget(msg_label)
         bubble_layout.add_widget(time_label)
 
         def update_bubble_size(inst, val):
-            inst.width = max(msg_label.width, 65) + 24
-            inst.height = msg_label.height + time_label.height + 15
+            inst.width = max(msg_label.width, username_label.width, 65) + 24
+            inst.height = username_label.height + msg_label.height + time_label.height + 20
 
         bubble_layout.bind(minimum_size=update_bubble_size)
 
@@ -909,8 +985,9 @@ class ChatScreen(Screen):
                 "messages": [], "unread": 0}
 
         self.main_screen.chats[self.chat_id]["messages"].append(
-            {"text": text.strip(), "is_own": True})
-        self.add_message_bubble(text.strip(), is_own=True)
+            {"username": self.main_screen.username, "text": text.strip(), "is_own": True})
+        self.add_message_bubble(self.main_screen.username,
+                                text.strip(), is_own=True)
 
         # Send to server
         try:

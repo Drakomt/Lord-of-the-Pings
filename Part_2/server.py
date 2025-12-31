@@ -113,7 +113,7 @@ def handle_client(client_socket, address):
                         disconnect_client(client_socket)
                 continue
 
-            broadcast(f"[{username}]: {message}", client_socket)
+            broadcast(f"{username}: {message}", client_socket)
 
     except:
         pass

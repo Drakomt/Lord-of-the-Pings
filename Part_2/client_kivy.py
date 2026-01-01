@@ -1028,6 +1028,9 @@ class ChatScreen(Screen):
             self.main_screen.on_disconnected()
 
         Clock.schedule_once(lambda dt: self.scroll_to_bottom(), 0.05)
+        # Refocus the message input so user can send multiple messages quickly
+        Clock.schedule_once(lambda dt: setattr(
+            self.ids.message_input, 'focus', True), 0.1)
 
     def scroll_to_bottom(self):
         if self.ids.chat_box.height > self.ids.chat_scroll.height:

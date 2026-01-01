@@ -144,8 +144,9 @@ ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
 
 app = ctk.CTk()
-app.title("TCP Chat Server")
+app.title("Lotp Server")
 app.geometry("600x420")
+app.iconbitmap("LordOfThePingsImage.ico")
 
 # ----- Layout -----
 frame_left = ctk.CTkFrame(app, width=200, corner_radius=15)

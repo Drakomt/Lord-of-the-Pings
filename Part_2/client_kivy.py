@@ -96,6 +96,7 @@ ScreenManager:
                     background_color: 1, 1, 1, 1 
                     background_normal: "" 
                     padding: [15, (self.height - self.line_height) / 2]
+                    on_text_validate: root.login(username_input.text)
 
             Button:
                 text: "ENTER"
@@ -311,6 +312,7 @@ ScreenManager:
                 foreground_color: 0, 0, 0, 1
                 background_color: 0.9, 0.9, 0.9, 1
                 padding: [15, (self.height - self.line_height) / 2]
+                on_text_validate: root.send_message(message_input.text)
 
             Button:
                 text: "SEND"
@@ -340,6 +342,9 @@ class LoginScreen(Screen):
     def on_enter(self):
         # This tells Kivy: "Run self.check_status every 1 second"
         Clock.schedule_interval(self.check_status, 1)
+        # Auto-focus the username input
+        Clock.schedule_once(lambda dt: setattr(
+            self.ids.username_input, 'focus', True), 0.2)
 
     def on_leave(self):
         # Stop checking when the user leaves the login screen to save battery/CPU
@@ -374,6 +379,8 @@ class LoginScreen(Screen):
                       size_hint=(0.7, 0.3), auto_dismiss=False)
         btn.bind(on_release=lambda x: self.return_to_login(popup))
         popup.open()
+        # Give focus to the button by simulating a keyboard event
+        Clock.schedule_once(lambda dt: btn.dispatch('on_press'), 0.2)
 
     def show_username_taken_popup(self):
         content = BoxLayout(orientation="vertical", spacing=15, padding=20)
@@ -383,12 +390,23 @@ class LoginScreen(Screen):
         content.add_widget(btn)
         popup = Popup(title="Username Error", content=content,
                       size_hint=(0.7, 0.3), auto_dismiss=False)
-        btn.bind(on_release=lambda x: popup.dismiss())
+        btn.bind(on_release=lambda x: self._on_popup_close_login(popup))
         popup.open()
+        # Give focus to the button by simulating a keyboard event
+        Clock.schedule_once(lambda dt: btn.dispatch('on_press'), 0.2)
 
     def return_to_login(self, popup):
         popup.dismiss()
         self.manager.current = "login"
+        # Focus on username input after popup closes
+        Clock.schedule_once(lambda dt: setattr(
+            self.ids.username_input, 'focus', True), 0.1)
+
+    def _on_popup_close_login(self, popup):
+        """Helper method to handle popup close and restore focus to username input"""
+        popup.dismiss()
+        Clock.schedule_once(lambda dt: setattr(
+            self.ids.username_input, 'focus', True), 0.1)
 
     def on_kv_post(self, base_widget):
         ti = self.ids.username_input
@@ -523,6 +541,7 @@ class ChatCard(ButtonBehavior, BoxLayout):
 class MainScreen(Screen):
     username = StringProperty("")
     sock = None
+    user_initiated_disconnect = False
 
     def disconnect_socket(self):
         """Properly disconnect the socket from the server"""
@@ -541,6 +560,7 @@ class MainScreen(Screen):
         self.ids.user_list.clear_widgets()
 
     def Exit_to_login(self):
+        self.user_initiated_disconnect = True
         self.disconnect_socket()
         self.reset_chat_data()
         self.manager.current = "login"
@@ -716,7 +736,12 @@ class MainScreen(Screen):
         self.manager.current = "chat"
 
     def on_disconnected(self):
-        Clock.schedule_once(lambda dt: self.show_disconnect_popup())
+        # Only show disconnect popup if it wasn't a user-initiated disconnect
+        if not self.user_initiated_disconnect:
+            Clock.schedule_once(lambda dt: self.show_disconnect_popup())
+        else:
+            # Reset the flag for next session
+            self.user_initiated_disconnect = False
 
     def show_disconnect_popup(self):
         content = BoxLayout(orientation="vertical", spacing=15, padding=20)
@@ -728,6 +753,8 @@ class MainScreen(Screen):
                       size_hint=(0.7, 0.3), auto_dismiss=False)
         btn.bind(on_release=lambda x: self.return_to_login(popup))
         popup.open()
+        # Give focus to the button by pressing it after a short delay
+        Clock.schedule_once(lambda dt: btn.dispatch('on_press'), 0.2)
 
     def show_user_disconnected_popup(self, username):
         """Show popup when a user in a private chat disconnects"""
@@ -740,6 +767,8 @@ class MainScreen(Screen):
                       size_hint=(0.7, 0.3), auto_dismiss=False)
         btn.bind(on_release=lambda x: popup.dismiss())
         popup.open()
+        # Give focus to the button by simulating a keyboard event
+        Clock.schedule_once(lambda dt: btn.dispatch('on_press'), 0.2)
 
     def remove_chat(self, chat_id):
         """Remove a chat from the chats dictionary and update UI"""
@@ -770,6 +799,9 @@ class ChatScreen(Screen):
         self.ids.current_user_lbl.text = f"User: {main_screen.username}"
         # Load messages
         self.refresh_messages()
+        # Auto-focus the message input
+        Clock.schedule_once(lambda dt: setattr(
+            self.ids.message_input, 'focus', True), 0.1)
 
     def refresh_messages(self):
         box = self.ids.chat_box

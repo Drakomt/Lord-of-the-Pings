@@ -3,6 +3,7 @@ from kivy.uix.behaviors import ButtonBehavior
 import socket
 import threading
 import os
+import time
 from dotenv import load_dotenv
 from datetime import datetime
 from kivy.app import App
@@ -26,7 +27,13 @@ SYSTEM_COLOR = (1, 1, 1, 0)
 
 load_dotenv()
 
+# ====== DISCOVERY CONFIG ======
+DISCOVERY_PORT = 9001
+DISCOVERY_TIMEOUT = 5  # seconds
+DISCOVERY_PREFIX = "LOTP_SERVER|"
+
 # ====== SERVER CONFIG ======
+# Will be set dynamically via discovery, fallback to env vars if discovery fails
 HOST = os.environ.get("HOST", "127.0.0.1")
 SERVER_PORT = int(os.environ.get("SERVER_PORT", 9000))
 
@@ -324,6 +331,67 @@ ScreenManager:
                 bold: True
                 on_press: root.send_message(message_input.text)
 """
+
+# ============ SERVER DISCOVERY FUNCTIONS =============
+
+
+def discover_server():
+    """
+    Listens for UDP broadcast messages from the server.
+    Returns (ip, port) or None if not found within timeout.
+    """
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    sock.bind(("", DISCOVERY_PORT))
+    sock.settimeout(1)
+
+    start_time = time.time()
+
+    while time.time() - start_time < DISCOVERY_TIMEOUT:
+        try:
+            data, addr = sock.recvfrom(1024)
+            message = data.decode()
+
+            if message.startswith(DISCOVERY_PREFIX):
+                port = int(message.split("|")[1])
+                server_ip = addr[0]
+                sock.close()
+                return server_ip, port
+
+        except socket.timeout:
+            continue
+        except:
+            break
+
+    sock.close()
+    return None
+
+
+def start_discovery():
+    """
+    Starts server discovery in a background thread.
+    Updates the app's HOST and SERVER_PORT when found.
+    """
+    def worker():
+        result = discover_server()
+        Clock.schedule_once(lambda dt: on_discovery_finished(result))
+
+    threading.Thread(target=worker, daemon=True).start()
+
+
+def on_discovery_finished(result):
+    """
+    Handle discovery result and update global HOST and SERVER_PORT.
+    """
+    global HOST, SERVER_PORT
+    if result:
+        server_ip, server_port = result
+        HOST = server_ip
+        SERVER_PORT = server_port
+        print(f"[Discovery] Discovered server at {HOST}:{SERVER_PORT}")
+    else:
+        print("[Discovery] Server not found automatically, using env vars")
+
 
 # ============ if server online check function =============
 
@@ -1042,6 +1110,8 @@ class ChatScreen(Screen):
 
 class ChatApp(App):
     def build(self):
+        # Start server discovery when app starts
+        start_discovery()
         return Builder.load_string(KV)
 
 

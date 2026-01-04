@@ -7,6 +7,7 @@
 import socket
 import threading
 import os
+import time
 import customtkinter as ctk
 from dotenv import load_dotenv
 
@@ -17,8 +18,34 @@ SERVER_HOST = os.environ.get("SERVER_HOST", "0.0.0.0")
 SERVER_PORT = int(os.environ.get("SERVER_PORT", 9000))
 # ===========================
 
+# ====== DISCOVERY CONFIG ======
+DISCOVERY_PORT = 9001
+DISCOVERY_INTERVAL = 2  # seconds
+DISCOVERY_MESSAGE = f"LOTP_SERVER|{SERVER_PORT}"
+# =============================
+
 clients = {}        # socket -> username
 clients_lock = threading.Lock()
+
+
+def discovery_broadcast_thread():
+    """
+    Periodically broadcast server presence on the local network
+    so clients can auto-discover the server IP and port.
+    """
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+
+    while True:
+        try:
+            sock.sendto(
+                DISCOVERY_MESSAGE.encode(),
+                ("<broadcast>", DISCOVERY_PORT)
+            )
+        except:
+            pass
+        time.sleep(DISCOVERY_INTERVAL)
+
 
 # ================= SERVER LOGIC =================
 
@@ -146,7 +173,10 @@ ctk.set_default_color_theme("blue")
 app = ctk.CTk()
 app.title("Lotp Server")
 app.geometry("600x420")
-app.iconbitmap("LordOfThePingsImage.ico")
+# app.iconbitmap("LordOfThePingsImage.ico") # Old way
+icon_path = os.path.join(os.path.dirname(
+    os.path.abspath(__file__)), "LordOfThePingsImage.ico")
+app.iconbitmap(icon_path)
 
 # ----- Layout -----
 frame_left = ctk.CTkFrame(app, width=200, corner_radius=15)
@@ -200,4 +230,5 @@ def update_user_list():
 
 
 threading.Thread(target=server_thread, daemon=True).start()
+threading.Thread(target=discovery_broadcast_thread, daemon=True).start()
 app.mainloop()

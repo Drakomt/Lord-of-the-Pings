@@ -20,10 +20,27 @@ from kivy.uix.widget import Widget
 from kivy.uix.scrollview import ScrollView
 from kivy.graphics import Color, Line, RoundedRectangle
 
-OTHER_COLOR = (239 / 255, 246 / 255, 173 / 255, 1)
-OWN_COLOR = (242 / 255, 235 / 255, 50 / 255, 1)
-# Light blue for system messages
-SYSTEM_COLOR = (1, 1, 1, 0)
+# ============================================
+# THE SHIRE THEME - LOTR Color Palette
+# ============================================
+# Hex values for reference:
+# BASE_BG:      #1E2A1E (forest shadow) - background
+# CARD_BG:      #2F3E2A (tree bark green) - cards, navbar, buttons
+# OWN_COLOR:    #6F8F5A (sunlit Shire grass) - your messages
+# OTHER_COLOR:  #4F6442 (darker leaf) - other messages
+# TEXT_PRIMARY: #EDEEDC (parchment) - primary text
+# TEXT_HINT:    #B5B8A3 (muted) - secondary text
+# SYSTEM_COLOR: #3A4A32 (subtle system) - system messages
+# INPUT_BG:     #273524 (darker input) - text input backgrounds
+
+BASE_BG = (30/255, 42/255, 30/255, 1)
+CARD_BG = (47/255, 62/255, 42/255, 1)
+OWN_COLOR = (111/255, 143/255, 90/255, 1)
+OTHER_COLOR = (79/255, 100/255, 66/255, 1)
+TEXT_PRIMARY = (237/255, 238/255, 220/255, 1)
+TEXT_HINT = (181/255, 184/255, 163/255, 1)
+SYSTEM_COLOR = (58/255, 74/255, 50/255, 1)
+INPUT_BG = (39/255, 52/255, 36/255, 1)
 
 load_dotenv()
 
@@ -49,7 +66,7 @@ ScreenManager:
     name: "login"
     canvas.before:
         Color:
-            rgba: 0.1, 0.1, 0.1, 1
+            rgba: 30/255., 42/255., 30/255., 1  # BASE_BG
         Rectangle:
             pos: self.pos
             size: self.size
@@ -98,9 +115,9 @@ ScreenManager:
                     size_hint: (None, None)
                     size: (320, 55)
                     pos_hint: {"center_x": 0.5}
-                    foreground_color: 0, 0, 0, 1
-                    hint_text_color: 0.5, 0.5, 0.5, 1
-                    background_color: 1, 1, 1, 1 
+                    foreground_color: 237/255., 238/255., 220/255., 1  # TEXT_PRIMARY
+                    hint_text_color: 181/255., 184/255., 163/255., 1  # TEXT_HINT
+                    background_color: 39/255., 52/255., 36/255., 1  # INPUT_BG
                     background_normal: "" 
                     padding: [15, (self.height - self.line_height) / 2]
                     on_text_validate: root.login(username_input.text)
@@ -111,8 +128,8 @@ ScreenManager:
                 size: (320, 60)
                 pos_hint: {"center_x": 0.5}
                 background_normal: ""
-                background_color: 242/255, 235/255, 50/255, 1
-                color: 0, 0, 0, 1
+                background_color: 111/255., 143/255., 90/255., 1  # OWN_COLOR (accent)
+                color: 237/255., 238/255., 220/255., 1  # TEXT_PRIMARY
                 bold: True
                 font_size: "20sp"
                 on_press: root.login(username_input.text)
@@ -126,7 +143,7 @@ ScreenManager:
         BoxLayout:
             orientation: "vertical"
             padding: 0
-            spacing: 10
+            spacing: 0
 
             # Header with Exit button
             BoxLayout:
@@ -136,7 +153,7 @@ ScreenManager:
                 spacing: 10
                 canvas.before:
                     Color:
-                        rgba: 0.15, 0.15, 0.15, 1
+                        rgba: 47/255., 62/255., 42/255., 1  # CARD_BG (navbar)
                     Rectangle:
                         pos: self.pos
                         size: self.size
@@ -148,7 +165,7 @@ ScreenManager:
                     halign: "left"
                     canvas.before:
                         Color:
-                            rgba: 0.8, 0.1, 0.1, 1 
+                            rgba: 30/255., 42/255., 30/255., 1  # BASE_BG (darker)
                         RoundedRectangle:
                             pos: self.pos
                             size: self.size
@@ -181,6 +198,12 @@ ScreenManager:
                 halign: "left"
                 padding: 15, 0
                 text_size: self.size
+                canvas.before:
+                    Color:
+                        rgba: 79/255., 100/255., 66/255., 1  # OTHER_COLOR background
+                    Rectangle:
+                        pos: self.pos
+                        size: self.size
 
             ScrollView:
                 id: chats_scroll
@@ -188,7 +211,7 @@ ScreenManager:
                 bar_width: 6
                 canvas.before:
                     Color:
-                        rgba: 0.08, 0.08, 0.08, 1
+                        rgba: 30/255., 42/255., 30/255., 1  # BASE_BG
                     Rectangle:
                         pos: self.pos
                         size: self.size
@@ -209,10 +232,16 @@ ScreenManager:
             spacing: 10
             canvas.before:
                 Color:
-                    rgba: 0.1, 0.1, 0.1, 1
+                    rgba: 30/255., 42/255., 30/255., 1  # BASE_BG
                 Rectangle:
                     pos: self.pos
                     size: self.size
+            canvas.after:
+                Color:
+                    rgba: 79/255., 100/255., 66/255., 1  # OTHER_COLOR border
+                Line:
+                    rectangle: (self.x, self.y, self.width, self.height)
+                    width: 1.2
 
             Label:
                 text: "Users Online"
@@ -220,6 +249,12 @@ ScreenManager:
                 height: 30
                 color: 1, 1, 1, 1
                 bold: True
+                canvas.before:
+                    Color:
+                        rgba: 79/255., 100/255., 66/255., 1  # OTHER_COLOR background
+                    Rectangle:
+                        pos: self.pos
+                        size: self.size
 
             ScrollView:
                 id: users_scroll
@@ -246,7 +281,7 @@ ScreenManager:
             spacing: 10
             canvas.before:
                 Color:
-                    rgba: 0.15, 0.15, 0.15, 1
+                    rgba: 47/255., 62/255., 42/255., 1  # CARD_BG (navbar)
                 Rectangle:
                     pos: self.pos
                     size: self.size
@@ -256,8 +291,8 @@ ScreenManager:
                 size_hint: (None, None)
                 size: (80, 45)
                 background_normal: ""
-                background_color: 0.25, 0.25, 0.25, 1
-                color: 1, 1, 1, 1
+                background_color: 111/255., 143/255., 90/255., 1  # OWN_COLOR (accent)
+                color: 237/255., 238/255., 220/255., 1  # TEXT_PRIMARY
                 bold: True
                 font_size: "24sp"
                 on_press: root.go_back()
@@ -286,7 +321,7 @@ ScreenManager:
             bar_width: 6
             canvas.before:
                 Color:
-                    rgba: 0.08, 0.08, 0.08, 1
+                    rgba: 30/255., 42/255., 30/255., 1  # BASE_BG
                 Rectangle:
                     pos: self.pos
                     size: self.size
@@ -307,7 +342,7 @@ ScreenManager:
             spacing: 10
             canvas.before:
                 Color:
-                    rgba: 0.2, 0.2, 0.2, 1
+                    rgba: 47/255., 62/255., 42/255., 1  # CARD_BG
                 Rectangle:
                     pos: self.pos
                     size: self.size
@@ -316,8 +351,9 @@ ScreenManager:
                 id: message_input
                 hint_text: "Type your message..."
                 multiline: False
-                foreground_color: 0, 0, 0, 1
-                background_color: 0.9, 0.9, 0.9, 1
+                foreground_color: 237/255., 238/255., 220/255., 1  # TEXT_PRIMARY
+                hint_text_color: 181/255., 184/255., 163/255., 1  # TEXT_HINT
+                background_color: 39/255., 52/255., 36/255., 1  # INPUT_BG
                 padding: [15, (self.height - self.line_height) / 2]
                 on_text_validate: root.send_message(message_input.text)
 
@@ -326,8 +362,8 @@ ScreenManager:
                 size_hint_x: None
                 width: 110
                 background_normal: ""
-                background_color: 242/255, 235/255, 50/255, 1
-                color: 0, 0, 0, 1
+                background_color: 111/255., 143/255., 90/255., 1  # OWN_COLOR (accent)
+                color: 237/255., 238/255., 220/255., 1  # TEXT_PRIMARY
                 bold: True
                 on_press: root.send_message(message_input.text)
 """
@@ -563,7 +599,7 @@ class ChatCard(ButtonBehavior, BoxLayout):
 
         # Background
         with self.canvas.before:
-            Color(0.18, 0.18, 0.18, 1)
+            Color(*CARD_BG)
             self.bg = RoundedRectangle(
                 radius=[10], pos=self.pos, size=self.size)
 
@@ -764,8 +800,8 @@ class MainScreen(Screen):
                 size_hint_y=None,
                 height=40,
                 background_normal="",
-                background_color=(0.24, 0.24, 0.24, 1),
-                color=(1, 1, 1, 1),
+                background_color=CARD_BG,
+                color=TEXT_PRIMARY,
                 bold=True
             )
             btn.bind(on_release=lambda inst, n=name: self.open_chat(n))
@@ -780,15 +816,46 @@ class MainScreen(Screen):
         general_card = self.create_chat_card("General Chat", "general")
         container.add_widget(general_card)
 
+        # Add divider between general and private chats if there are private chats
+        private_chats = [
+            user for user in self.online_users if user in self.chats]
+        if private_chats:
+            divider = self.create_divider()
+            container.add_widget(divider)
+
         # Private chat cards
-        for user in self.online_users:
-            if user in self.chats:
-                private_card = self.create_chat_card(f"{user}", user)
-                container.add_widget(private_card)
+        for user in private_chats:
+            private_card = self.create_chat_card(f"{user}", user)
+            container.add_widget(private_card)
 
     def create_chat_card(self, title, chat_id):
         unread = self.chats.get(chat_id, {}).get("unread", 0)
         return ChatCard(title, chat_id, parent_with_open_chat=self, unread=unread)
+
+    def create_divider(self):
+        """Create a divider bar between general and private chats"""
+        divider_container = BoxLayout(
+            size_hint_y=None,
+            height=30,
+            padding=(15, 8)
+        )
+
+        divider_line = Widget(size_hint_y=None, height=1)
+        with divider_line.canvas:
+            Color(*OTHER_COLOR)
+            divider_line.rect = RoundedRectangle(
+                pos=divider_line.pos,
+                size=divider_line.size,
+                radius=[0]
+            )
+
+        divider_line.bind(
+            pos=lambda inst, val: setattr(inst.rect, 'pos', inst.pos),
+            size=lambda inst, val: setattr(inst.rect, 'size', inst.size)
+        )
+
+        divider_container.add_widget(divider_line)
+        return divider_container
 
     def open_chat(self, chat_id):
         if chat_id not in self.chats:
@@ -907,7 +974,7 @@ class ChatScreen(Screen):
         # Username label
         username_label = Label(
             text=username,
-            color=(0, 0, 0, 0.6),
+            color=TEXT_PRIMARY,
             size_hint=(None, None),
             halign='left',
             font_size='11sp',
@@ -923,7 +990,7 @@ class ChatScreen(Screen):
         # Message label
         msg_label = Label(
             text=text,
-            color=(0, 0, 0, 1),
+            color=TEXT_PRIMARY,
             size_hint=(None, None),
             halign='left'
         )
@@ -946,7 +1013,7 @@ class ChatScreen(Screen):
         # Time label
         time_label = Label(
             text=time_str,
-            color=(0, 0, 0, 0.4),
+            color=TEXT_HINT,
             font_size='10sp',
             size_hint=(1, None),
             height=15,
@@ -1007,7 +1074,7 @@ class ChatScreen(Screen):
 
         msg_label = Label(
             text=text,
-            color=(1, 1, 1, 1),  # White text for system messages
+            color=TEXT_PRIMARY,
             size_hint=(None, None),
             halign='center',
             italic=True,
@@ -1031,7 +1098,7 @@ class ChatScreen(Screen):
 
         time_label = Label(
             text=time_str,
-            color=(1, 1, 1, 0.5),
+            color=TEXT_HINT,
             font_size='9sp',
             size_hint=(1, None),
             height=12,

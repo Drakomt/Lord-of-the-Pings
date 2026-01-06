@@ -18,6 +18,11 @@ SERVER_HOST = os.environ.get("SERVER_HOST", "0.0.0.0")
 SERVER_PORT = int(os.environ.get("SERVER_PORT", 9000))
 # ===========================
 
+BACKGROUND_COLOR = "#0F1218"
+ACCENT_COLOR = "#2E4A62"
+OTHER_COLOR = "#2B2B2B"
+TEXT_COLOR = "#F2F2F2"
+
 # ====== DISCOVERY CONFIG ======
 DISCOVERY_PORT = 9001
 DISCOVERY_INTERVAL = 2  # seconds
@@ -173,32 +178,44 @@ ctk.set_default_color_theme("blue")
 app = ctk.CTk()
 app.title("Lotp Server")
 app.geometry("600x420")
+app.configure(fg_color=BACKGROUND_COLOR)
 # app.iconbitmap("LordOfThePingsImage.ico") # Old way
 icon_path = os.path.join(os.path.dirname(
     os.path.abspath(__file__)), "LordOfThePingsImage.ico")
 app.iconbitmap(icon_path)
 
 # ----- Layout -----
-frame_left = ctk.CTkFrame(app, width=200, corner_radius=15)
+frame_left = ctk.CTkFrame(app, width=200, corner_radius=15,
+                          fg_color="#111821", border_color=ACCENT_COLOR, border_width=1)
 frame_left.pack(side="left", fill="y", padx=10, pady=10)
 
-frame_right = ctk.CTkFrame(app, corner_radius=15)
+frame_right = ctk.CTkFrame(
+    app, corner_radius=15, fg_color="#111821", border_color=ACCENT_COLOR, border_width=1)
 frame_right.pack(side="right", fill="both", expand=True, padx=10, pady=10)
 
 # ----- Online Users -----
 label_users = ctk.CTkLabel(
-    frame_left, text="Online Users", font=("Arial", 16, "bold"))
+    frame_left, text="Online Users", font=("Arial", 16, "bold"), text_color=TEXT_COLOR)
 label_users.pack(pady=(10, 5))
 
-users_list = ctk.CTkScrollableFrame(frame_left, height=300)
+users_list = ctk.CTkScrollableFrame(
+    frame_left, height=300, fg_color=BACKGROUND_COLOR)
 users_list.pack(fill="both", expand=True, padx=5, pady=5)
 
 # ----- Log -----
 label_log = ctk.CTkLabel(frame_right, text="Server Log",
-                         font=("Arial", 16, "bold"))
+                         font=("Arial", 16, "bold"), text_color=TEXT_COLOR)
 label_log.pack(pady=(10, 5))
 
-log_box = ctk.CTkTextbox(frame_right, state="disabled", corner_radius=10)
+log_box = ctk.CTkTextbox(
+    frame_right,
+    state="disabled",
+    corner_radius=10,
+    fg_color=BACKGROUND_COLOR,
+    text_color=TEXT_COLOR,
+    border_color=ACCENT_COLOR,
+    border_width=1,
+)
 log_box.pack(fill="both", expand=True, padx=10, pady=10)
 
 # ================= GUI HELPERS =================
@@ -220,8 +237,9 @@ def update_user_list():
             btn = ctk.CTkButton(
                 users_list,
                 text=username,
-                fg_color="#E74C3C",
-                hover_color="#C0392B",
+                fg_color=ACCENT_COLOR,
+                hover_color="#3B5D7B",
+                text_color=TEXT_COLOR,
                 command=lambda s=sock: disconnect_client(s)
             )
             btn.pack(fill="x", padx=5, pady=4)

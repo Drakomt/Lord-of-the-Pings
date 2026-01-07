@@ -21,28 +21,28 @@ from kivy.uix.scrollview import ScrollView
 from kivy.graphics import Color, Line, RoundedRectangle
 
 # ============================================
-# THE SHIRE THEME - LOTR Color Palette
+# AETHER THEME - Blue / Purple Palette
 # ============================================
-# Hex values for reference:
-# BASE_BG:      #1E2A1E (forest shadow) - background
-# CARD_BG:      #2F3E2A (tree bark green) - cards, navbar, buttons
-# OWN_COLOR:    #6F8F5A (sunlit Shire grass) - your messages
-# OTHER_COLOR:  #4F6442 (darker leaf) - other messages
-# TEXT_PRIMARY: #EDEEDC (parchment) - primary text
-# TEXT_HINT:    #B5B8A3 (muted) - secondary text
-# SYSTEM_COLOR: #3A4A32 (subtle system) - system messages
-# INPUT_BG:     #273524 (darker input) - text input backgrounds
+# BASE_BG:      #0E1020 - background
+# CARD_BG:      #1A1F3A - cards, navbar, buttons
+# OWN_COLOR:    #4E8AFF - your messages / primary accent
+# OTHER_COLOR:  #8463FF - other messages / secondary accent
+# TEXT_PRIMARY: #F2F5FF - primary text
+# TEXT_HINT:    #8C9ABC - secondary text
+# SYSTEM_COLOR: #2C3456 - system messages
+# INPUT_BG:     #121426 - text input backgrounds
 
-BASE_BG = (30/255, 42/255, 30/255, 1)
-CARD_BG = (47/255, 62/255, 42/255, 1)
-OWN_COLOR = (111/255, 143/255, 90/255, 1)
-OTHER_COLOR = (79/255, 100/255, 66/255, 1)
-TEXT_PRIMARY = (237/255, 238/255, 220/255, 1)
-TEXT_HINT = (181/255, 184/255, 163/255, 1)
-SYSTEM_COLOR = (58/255, 74/255, 50/255, 1)
-INPUT_BG = (39/255, 52/255, 36/255, 1)
-BROWN = (61/255, 47/255, 31/255, 1)
-DARK_BROWN = (38/255, 29/255, 19/255, 1)
+BASE_BG = (14/255, 16/255, 32/255, 1)
+CARD_BG = (26/255, 31/255, 58/255, 1)
+OWN_COLOR = (78/255, 138/255, 255/255, 1)
+OTHER_COLOR = (132/255, 99/255, 255/255, 1)
+TEXT_PRIMARY = (242/255, 245/255, 255/255, 1)
+TEXT_HINT = (140/255, 154/255, 188/255, 1)
+SYSTEM_COLOR = (44/255, 52/255, 86/255, 1)
+INPUT_BG = (18/255, 20/255, 38/255, 1)
+BROWN = (31/255, 38/255, 68/255, 1)
+DARK_BROWN = (24/255, 30/255, 55/255, 1)
+ALERT_COLOR = (255/255, 88/255, 160/255, 1)
 
 load_dotenv()
 
@@ -68,7 +68,7 @@ ScreenManager:
     name: "login"
     canvas.before:
         Color:
-            rgba: 30/255., 42/255., 30/255., 1  # BASE_BG
+            rgba: 14/255., 16/255., 32/255., 1  # BASE_BG
         Rectangle:
             pos: self.pos
             size: self.size
@@ -117,9 +117,9 @@ ScreenManager:
                     size_hint: (None, None)
                     size: (320, 55)
                     pos_hint: {"center_x": 0.5}
-                    foreground_color: 237/255., 238/255., 220/255., 1  # TEXT_PRIMARY
-                    hint_text_color: 181/255., 184/255., 163/255., 1  # TEXT_HINT
-                    background_color: 39/255., 52/255., 36/255., 1  # INPUT_BG
+                    foreground_color: 242/255., 245/255., 255/255., 1  # TEXT_PRIMARY
+                    hint_text_color: 140/255., 154/255., 188/255., 1  # TEXT_HINT
+                    background_color: 18/255., 20/255., 38/255., 1  # INPUT_BG
                     background_normal: "" 
                     padding: [15, (self.height - self.line_height) / 2]
                     on_text_validate: root.login(username_input.text)
@@ -130,8 +130,8 @@ ScreenManager:
                 size: (320, 60)
                 pos_hint: {"center_x": 0.5}
                 background_normal: ""
-                background_color: 111/255., 143/255., 90/255., 1  # OWN_COLOR (accent)
-                color: 237/255., 238/255., 220/255., 1  # TEXT_PRIMARY
+                background_color: 78/255., 138/255., 255/255., 1  # OWN_COLOR (accent)
+                color: 242/255., 245/255., 255/255., 1  # TEXT_PRIMARY
                 bold: True
                 font_size: "20sp"
                 on_press: root.login(username_input.text)
@@ -155,7 +155,7 @@ ScreenManager:
                 spacing: 10
                 canvas.before:
                     Color:
-                        rgba: 61/255., 47/255., 31/255., 1  # BROWN (navbar)
+                        rgba: 31/255., 38/255., 68/255., 1  # BROWN (navbar)
                     Rectangle:
                         pos: self.pos
                         size: self.size
@@ -167,7 +167,7 @@ ScreenManager:
                     halign: "left"
                     canvas.before:
                         Color:
-                            rgba: 38/255., 29/255., 19/255., 1  # DARK_BROWN (button)
+                            rgba: 24/255., 30/255., 55/255., 1  # DARK_BROWN (button)
                         RoundedRectangle:
                             pos: self.pos
                             size: self.size
@@ -202,7 +202,7 @@ ScreenManager:
                 text_size: self.size
                 canvas.before:
                     Color:
-                        rgba: 79/255., 100/255., 66/255., 1  # OTHER_COLOR background
+                        rgba: 132/255., 99/255., 255/255., 1  # OTHER_COLOR background
                     Rectangle:
                         pos: self.pos
                         size: self.size
@@ -213,7 +213,7 @@ ScreenManager:
                 bar_width: 6
                 canvas.before:
                     Color:
-                        rgba: 30/255., 42/255., 30/255., 1  # BASE_BG
+                        rgba: 14/255., 16/255., 32/255., 1  # BASE_BG
                     Rectangle:
                         pos: self.pos
                         size: self.size
@@ -233,13 +233,13 @@ ScreenManager:
             spacing: 10
             canvas.before:
                 Color:
-                    rgba: 30/255., 42/255., 30/255., 1  # BASE_BG
+                    rgba: 14/255., 16/255., 32/255., 1  # BASE_BG
                 Rectangle:
                     pos: self.pos
                     size: self.size
             canvas.after:
                 Color:
-                    rgba: 61/255., 47/255., 31/255., 1  # BROWN background
+                    rgba: 31/255., 38/255., 68/255., 1  # BROWN background
                 Line:
                     rectangle: (self.x, self.y, self.width, self.height)
                     width: 1.5
@@ -252,7 +252,7 @@ ScreenManager:
                 bold: True
                 canvas.before:
                     Color:
-                        rgba: 79/255., 100/255., 66/255., 1  # OTHER_COLOR background
+                        rgba: 132/255., 99/255., 255/255., 1  # OTHER_COLOR background
                     Rectangle:
                         pos: self.pos
                         size: self.size
@@ -282,7 +282,7 @@ ScreenManager:
             spacing: 10
             canvas.before:
                 Color:
-                    rgba: 47/255., 62/255., 42/255., 1  # CARD_BG (navbar)
+                    rgba: 26/255., 31/255., 58/255., 1  # CARD_BG (navbar)
                 Rectangle:
                     pos: self.pos
                     size: self.size
@@ -292,8 +292,8 @@ ScreenManager:
                 size_hint: (None, None)
                 size: (80, 45)
                 background_normal: ""
-                background_color: 111/255., 143/255., 90/255., 1  # OWN_COLOR (accent)
-                color: 237/255., 238/255., 220/255., 1  # TEXT_PRIMARY
+                background_color: 78/255., 138/255., 255/255., 1  # OWN_COLOR (accent)
+                color: 242/255., 245/255., 255/255., 1  # TEXT_PRIMARY
                 bold: True
                 font_size: "24sp"
                 on_press: root.go_back()
@@ -322,7 +322,7 @@ ScreenManager:
             bar_width: 6
             canvas.before:
                 Color:
-                    rgba: 30/255., 42/255., 30/255., 1  # BASE_BG
+                    rgba: 14/255., 16/255., 32/255., 1  # BASE_BG
                 Rectangle:
                     pos: self.pos
                     size: self.size
@@ -343,7 +343,7 @@ ScreenManager:
             spacing: 10
             canvas.before:
                 Color:
-                    rgba: 47/255., 62/255., 42/255., 1  # CARD_BG
+                    rgba: 26/255., 31/255., 58/255., 1  # CARD_BG
                 Rectangle:
                     pos: self.pos
                     size: self.size
@@ -352,9 +352,9 @@ ScreenManager:
                 id: message_input
                 hint_text: "Type your message..."
                 multiline: False
-                foreground_color: 237/255., 238/255., 220/255., 1  # TEXT_PRIMARY
-                hint_text_color: 181/255., 184/255., 163/255., 1  # TEXT_HINT
-                background_color: 39/255., 52/255., 36/255., 1  # INPUT_BG
+                foreground_color: 242/255., 245/255., 255/255., 1  # TEXT_PRIMARY
+                hint_text_color: 140/255., 154/255., 188/255., 1  # TEXT_HINT
+                background_color: 18/255., 20/255., 38/255., 1  # INPUT_BG
                 padding: [15, (self.height - self.line_height) / 2]
                 on_text_validate: root.send_message(message_input.text)
 
@@ -363,8 +363,8 @@ ScreenManager:
                 size_hint_x: None
                 width: 110
                 background_normal: ""
-                background_color: 111/255., 143/255., 90/255., 1  # OWN_COLOR (accent)
-                color: 237/255., 238/255., 220/255., 1  # TEXT_PRIMARY
+                background_color: 78/255., 138/255., 255/255., 1  # OWN_COLOR (accent)
+                color: 242/255., 245/255., 255/255., 1  # TEXT_PRIMARY
                 bold: True
                 on_press: root.send_message(message_input.text)
 """
@@ -469,10 +469,10 @@ class LoginScreen(Screen):
     def update_label(self, online):
         if online:
             self.ids.server_status_lbl.text = "ONLINE"
-            self.ids.server_status_lbl.color = (0, 1, 0, 1)
+            self.ids.server_status_lbl.color = OWN_COLOR
         else:
             self.ids.server_status_lbl.text = "OFFLINE"
-            self.ids.server_status_lbl.color = (1, 0, 0, 1)
+            self.ids.server_status_lbl.color = ALERT_COLOR
 
     def show_server_offline_popup(self):
         content = BoxLayout(orientation="vertical", spacing=15, padding=20)
@@ -516,7 +516,7 @@ class LoginScreen(Screen):
     def on_kv_post(self, base_widget):
         ti = self.ids.username_input
         with ti.canvas.after:
-            Color(242 / 255, 235 / 255, 50 / 255, 1)
+            Color(*OWN_COLOR)
             self.border_line = Line(rectangle=(
                 ti.x, ti.y, ti.width, ti.height), width=1.5)
 

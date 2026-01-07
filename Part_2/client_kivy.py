@@ -130,11 +130,17 @@ ScreenManager:
                 size: (320, 60)
                 pos_hint: {"center_x": 0.5}
                 background_normal: ""
-                background_color: 78/255., 138/255., 255/255., 1  # OWN_COLOR (accent)
+                background_color: 31/255., 38/255., 68/255., 1  # BROWN
                 color: 242/255., 245/255., 255/255., 1  # TEXT_PRIMARY
                 bold: True
                 font_size: "20sp"
                 on_press: root.login(username_input.text)
+                canvas.after:
+                    Color:
+                        rgba: 132/255., 99/255., 255/255., 1  # OTHER_COLOR (purple border)
+                    Line:
+                        rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
+                        width: 1.5
 
 <MainScreen>:
     name: "main"
@@ -160,26 +166,23 @@ ScreenManager:
                         pos: self.pos
                         size: self.size
 
-                BoxLayout:
+                Button:
+                    text: "EXIT"
                     size_hint: (None, None)
                     size: (85, 45)
                     pos_hint: {"center_y": 0.5}
-                    halign: "left"
-                    canvas.before:
+                    background_normal: ""
+                    background_color: 31/255., 38/255., 68/255., 1  # BROWN
+                    color: 1, 1, 1, 1
+                    bold: True
+                    canvas.after:
                         Color:
-                            rgba: 24/255., 30/255., 55/255., 1  # DARK_BROWN (button)
-                        RoundedRectangle:
-                            pos: self.pos
-                            size: self.size
-                            radius: [10]
-
-                    Button:
-                        text: "EXIT"
-                        background_normal: ""
-                        background_color: 0, 0, 0, 0 
-                        color: 1, 1, 1, 1
-                        bold: True
-                        on_press: root.Exit_to_login()
+                            rgba: 132/255., 99/255., 255/255., 1  # OTHER_COLOR (purple border)
+                        Line:
+                            rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
+                            width: 1.5
+                    bold: True
+                    on_press: root.Exit_to_login()
 
                 Label:
                     id: current_user_lbl
@@ -292,11 +295,17 @@ ScreenManager:
                 size_hint: (None, None)
                 size: (80, 45)
                 background_normal: ""
-                background_color: 78/255., 138/255., 255/255., 1  # OWN_COLOR (accent)
+                background_color: 31/255., 38/255., 68/255., 1  # BROWN
                 color: 242/255., 245/255., 255/255., 1  # TEXT_PRIMARY
                 bold: True
                 font_size: "24sp"
                 on_press: root.go_back()
+                canvas.after:
+                    Color:
+                        rgba: 132/255., 99/255., 255/255., 1  # OTHER_COLOR (purple border)
+                    Line:
+                        rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
+                        width: 1.5
 
             Label:
                 id: chat_title
@@ -363,10 +372,16 @@ ScreenManager:
                 size_hint_x: None
                 width: 110
                 background_normal: ""
-                background_color: 78/255., 138/255., 255/255., 1  # OWN_COLOR (accent)
+                background_color: 31/255., 38/255., 68/255., 1  # BROWN
                 color: 242/255., 245/255., 255/255., 1  # TEXT_PRIMARY
                 bold: True
                 on_press: root.send_message(message_input.text)
+                canvas.after:
+                    Color:
+                        rgba: 132/255., 99/255., 255/255., 1  # OTHER_COLOR (purple border)
+                    Line:
+                        rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
+                        width: 1.5
 """
 
 # ============ SERVER DISCOVERY FUNCTIONS =============
@@ -478,7 +493,17 @@ class LoginScreen(Screen):
         content = BoxLayout(orientation="vertical", spacing=15, padding=20)
         content.add_widget(
             Label(text="server is down try again later", font_size=25))
-        btn = Button(text="OK", size_hint_y=None, height=45)
+        btn = Button(text="OK", size_hint_y=None, height=45, background_normal="",
+                     background_color=BROWN, color=TEXT_PRIMARY, bold=True)
+
+        # Add rounded border
+        with btn.canvas.after:
+            Color(*OTHER_COLOR)
+            btn.border_line = Line(rounded_rectangle=(
+                btn.x, btn.y, btn.width, btn.height, 8), width=1.5)
+        btn.bind(pos=lambda inst, val: setattr(inst.border_line, 'rounded_rectangle', (inst.x, inst.y, inst.width, inst.height, 8)),
+                 size=lambda inst, val: setattr(inst.border_line, 'rounded_rectangle', (inst.x, inst.y, inst.width, inst.height, 8)))
+
         content.add_widget(btn)
         popup = Popup(title="Error", content=content,
                       size_hint=(0.7, 0.3), auto_dismiss=False)
@@ -491,7 +516,17 @@ class LoginScreen(Screen):
         content = BoxLayout(orientation="vertical", spacing=15, padding=20)
         content.add_widget(
             Label(text="Username already taken. Please choose another.", font_size=22))
-        btn = Button(text="OK", size_hint_y=None, height=45)
+        btn = Button(text="OK", size_hint_y=None, height=45, background_normal="",
+                     background_color=BROWN, color=TEXT_PRIMARY, bold=True)
+
+        # Add rounded border
+        with btn.canvas.after:
+            Color(*OTHER_COLOR)
+            btn.border_line = Line(rounded_rectangle=(
+                btn.x, btn.y, btn.width, btn.height, 8), width=1.5)
+        btn.bind(pos=lambda inst, val: setattr(inst.border_line, 'rounded_rectangle', (inst.x, inst.y, inst.width, inst.height, 8)),
+                 size=lambda inst, val: setattr(inst.border_line, 'rounded_rectangle', (inst.x, inst.y, inst.width, inst.height, 8)))
+
         content.add_widget(btn)
         popup = Popup(title="Username Error", content=content,
                       size_hint=(0.7, 0.3), auto_dismiss=False)
@@ -920,7 +955,17 @@ class MainScreen(Screen):
         content = BoxLayout(orientation="vertical", spacing=15, padding=20)
         content.add_widget(
             Label(text="Disconnected from server", font_size=16))
-        btn = Button(text="OK", size_hint_y=None, height=45)
+        btn = Button(text="OK", size_hint_y=None, height=45, background_normal="",
+                     background_color=BROWN, color=TEXT_PRIMARY, bold=True)
+
+        # Add rounded border
+        with btn.canvas.after:
+            Color(*OTHER_COLOR)
+            btn.border_line = Line(rounded_rectangle=(
+                btn.x, btn.y, btn.width, btn.height, 8), width=1.5)
+        btn.bind(pos=lambda inst, val: setattr(inst.border_line, 'rounded_rectangle', (inst.x, inst.y, inst.width, inst.height, 8)),
+                 size=lambda inst, val: setattr(inst.border_line, 'rounded_rectangle', (inst.x, inst.y, inst.width, inst.height, 8)))
+
         content.add_widget(btn)
         popup = Popup(title="Error", content=content,
                       size_hint=(0.7, 0.3), auto_dismiss=False)
@@ -934,7 +979,17 @@ class MainScreen(Screen):
         content = BoxLayout(orientation="vertical", spacing=15, padding=20)
         content.add_widget(
             Label(text=f"{username} has disconnected", font_size=16))
-        btn = Button(text="OK", size_hint_y=None, height=45)
+        btn = Button(text="OK", size_hint_y=None, height=45, background_normal="",
+                     background_color=BROWN, color=TEXT_PRIMARY, bold=True)
+
+        # Add rounded border
+        with btn.canvas.after:
+            Color(*OTHER_COLOR)
+            btn.border_line = Line(rounded_rectangle=(
+                btn.x, btn.y, btn.width, btn.height, 8), width=1.5)
+        btn.bind(pos=lambda inst, val: setattr(inst.border_line, 'rounded_rectangle', (inst.x, inst.y, inst.width, inst.height, 8)),
+                 size=lambda inst, val: setattr(inst.border_line, 'rounded_rectangle', (inst.x, inst.y, inst.width, inst.height, 8)))
+
         content.add_widget(btn)
         popup = Popup(title="User Disconnected", content=content,
                       size_hint=(0.7, 0.3), auto_dismiss=False)
@@ -1051,7 +1106,7 @@ class ChatScreen(Screen):
         # Time label
         time_label = Label(
             text=time_str,
-            color=TEXT_HINT,
+            color=(1, 1, 1, 1),
             font_size='10sp',
             size_hint=(1, None),
             height=15,
@@ -1136,7 +1191,7 @@ class ChatScreen(Screen):
 
         time_label = Label(
             text=time_str,
-            color=TEXT_HINT,
+            color=(1, 1, 1, 1),
             font_size='9sp',
             size_hint=(1, None),
             height=12,

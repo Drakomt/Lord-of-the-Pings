@@ -41,6 +41,8 @@ TEXT_PRIMARY = (237/255, 238/255, 220/255, 1)
 TEXT_HINT = (181/255, 184/255, 163/255, 1)
 SYSTEM_COLOR = (58/255, 74/255, 50/255, 1)
 INPUT_BG = (39/255, 52/255, 36/255, 1)
+BROWN = (61/255, 47/255, 31/255, 1)
+DARK_BROWN = (38/255, 29/255, 19/255, 1)
 
 load_dotenv()
 
@@ -153,7 +155,7 @@ ScreenManager:
                 spacing: 10
                 canvas.before:
                     Color:
-                        rgba: 47/255., 62/255., 42/255., 1  # CARD_BG (navbar)
+                        rgba: 61/255., 47/255., 31/255., 1  # BROWN (navbar)
                     Rectangle:
                         pos: self.pos
                         size: self.size
@@ -165,7 +167,7 @@ ScreenManager:
                     halign: "left"
                     canvas.before:
                         Color:
-                            rgba: 30/255., 42/255., 30/255., 1  # BASE_BG (darker)
+                            rgba: 38/255., 29/255., 19/255., 1  # DARK_BROWN (button)
                         RoundedRectangle:
                             pos: self.pos
                             size: self.size
@@ -228,7 +230,6 @@ ScreenManager:
         BoxLayout:
             orientation: "vertical"
             size_hint_x: 0.28
-            padding: [10, 10]
             spacing: 10
             canvas.before:
                 Color:
@@ -238,10 +239,10 @@ ScreenManager:
                     size: self.size
             canvas.after:
                 Color:
-                    rgba: 79/255., 100/255., 66/255., 1  # OTHER_COLOR border
+                    rgba: 61/255., 47/255., 31/255., 1  # BROWN background
                 Line:
                     rectangle: (self.x, self.y, self.width, self.height)
-                    width: 1.2
+                    width: 1.5
 
             Label:
                 text: "Users Online"
@@ -265,8 +266,8 @@ ScreenManager:
                     orientation: "vertical"
                     size_hint_y: None
                     height: self.minimum_height
-                    spacing: 8
-                    padding: [0, 5]
+                    spacing: 10
+                    padding: [5, 8]
 
 <ChatScreen>:
     name: "chat"
@@ -591,6 +592,49 @@ class LoginScreen(Screen):
 # ============ Main Screen ===============================
 
 
+class UserButton(ButtonBehavior, BoxLayout):
+    """Custom button for online users with rounded corners and border"""
+
+    def __init__(self, username, callback, **kwargs):
+        super().__init__(size_hint_y=None, height=50, padding=(10, 8), **kwargs)
+
+        # Background with rounded corners
+        with self.canvas.before:
+            Color(*BROWN)
+            self.bg = RoundedRectangle(
+                radius=[8], pos=self.pos, size=self.size)
+            # Border
+            Color(*OTHER_COLOR)  # Matches "Users Online" label background
+            self.border = Line(
+                rounded_rectangle=(self.x, self.y, self.width, self.height, 8),
+                width=1.5
+            )
+
+        self.bind(pos=self._update_graphics, size=self._update_graphics)
+
+        # Username label
+        label = Label(
+            text=username,
+            color=TEXT_PRIMARY,
+            bold=True,
+            font_size="15sp",
+            halign="center",
+            valign="middle"
+        )
+        label.bind(size=lambda inst, val: setattr(
+            inst, "text_size", inst.size))
+        self.add_widget(label)
+
+        # Bind click
+        self.bind(on_release=callback)
+
+    def _update_graphics(self, *args):
+        self.bg.pos = self.pos
+        self.bg.size = self.size
+        self.border.rounded_rectangle = (
+            self.x, self.y, self.width, self.height, 8)
+
+
 class ChatCard(ButtonBehavior, BoxLayout):
     def __init__(self, title, chat_id, parent_with_open_chat, unread=0, **kwargs):
         super().__init__(orientation="horizontal", size_hint_y=None,
@@ -795,17 +839,11 @@ class MainScreen(Screen):
         holder.clear_widgets()
         self.ids.current_user_lbl.text = f"User: {self.username}"
         for name in self.online_users:
-            btn = Button(
-                text=name,
-                size_hint_y=None,
-                height=40,
-                background_normal="",
-                background_color=CARD_BG,
-                color=TEXT_PRIMARY,
-                bold=True
+            user_btn = UserButton(
+                name,
+                callback=lambda inst, n=name: self.open_chat(n)
             )
-            btn.bind(on_release=lambda inst, n=name: self.open_chat(n))
-            holder.add_widget(btn)
+            holder.add_widget(user_btn)
         self.update_chat_cards()
 
     def update_chat_cards(self):

@@ -82,7 +82,7 @@ ScreenManager:
             padding: [0, 20, 0, 20]
 
             Image:
-                source: "LordOfThePingsImage.jpg"
+                source: "Lotp_Image_O.png"
                 size_hint: (None, None)
                 size: (300, 300)
                 pos_hint: {"center_x": 0.5}

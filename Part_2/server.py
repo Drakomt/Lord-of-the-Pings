@@ -179,9 +179,9 @@ app = ctk.CTk()
 app.title("Lotp Server")
 app.geometry("600x420")
 app.configure(fg_color=BACKGROUND_COLOR)
-# app.iconbitmap("LordOfThePingsImage.ico") # Old way
+# app.iconbitmap("Lotp_Icon_O.ico") # Old way
 icon_path = os.path.join(os.path.dirname(
-    os.path.abspath(__file__)), "LordOfThePingsImage.ico")
+    os.path.abspath(__file__)), "Lotp_Icon_O.ico")
 app.iconbitmap(icon_path)
 
 # ----- Layout -----

@@ -1,5 +1,6 @@
 from kivy.graphics import Color, RoundedRectangle
 from kivy.uix.behaviors import ButtonBehavior
+from kivy.metrics import dp, sp
 import socket
 import threading
 import os
@@ -33,15 +34,14 @@ from kivy.graphics import Color, Line, RoundedRectangle
 # INPUT_BG:     #121426 - text input backgrounds
 
 BASE_BG = (14/255, 16/255, 32/255, 1)
-CARD_BG = (26/255, 31/255, 58/255, 1)
+# Dark background for cards, navbars, buttons
+DARK_BG = (26/255, 31/255, 58/255, 1)
 OWN_COLOR = (78/255, 138/255, 255/255, 1)
 OTHER_COLOR = (132/255, 99/255, 255/255, 1)
 TEXT_PRIMARY = (242/255, 245/255, 255/255, 1)
 TEXT_HINT = (140/255, 154/255, 188/255, 1)
 SYSTEM_COLOR = (44/255, 52/255, 86/255, 1)
 INPUT_BG = (18/255, 20/255, 38/255, 1)
-BROWN = (31/255, 38/255, 68/255, 1)
-DARK_BROWN = (24/255, 30/255, 55/255, 1)
 ALERT_COLOR = (255/255, 88/255, 160/255, 1)
 
 load_dotenv()
@@ -77,16 +77,17 @@ ScreenManager:
     RelativeLayout:
         BoxLayout:
             orientation: "vertical"
-            size_hint: None, None
-            size: 400, self.minimum_height
+            size_hint: 0.9, None
+            width: min(400, root.width * 0.9)
+            height: self.minimum_height
             pos_hint: {"center_x": 0.5, "center_y": 0.5}
-            spacing: 50  # Very large space between sections
-            padding: [0, 20, 0, 20]
+            spacing: dp(30)  # Responsive spacing
+            padding: [dp(10), dp(20), dp(10), dp(20)]
 
             Image:
-                source: "Lotp_Image_O.png"
+                source: "Lotp_Image_BP.png"
                 size_hint: (None, None)
-                size: (300, 300)
+                size: (min(300, root.width * 0.7), min(300, root.width * 0.7))
                 pos_hint: {"center_x": 0.5}
                 allow_stretch: True
 
@@ -114,30 +115,30 @@ ScreenManager:
                     id: username_input
                     hint_text: "Enter Username"
                     multiline: False
-                    size_hint: (None, None)
-                    size: (320, 55)
+                    size_hint: (0.9, None)
+                    height: dp(55)
                     pos_hint: {"center_x": 0.5}
                     foreground_color: 242/255., 245/255., 255/255., 1  # TEXT_PRIMARY
                     hint_text_color: 140/255., 154/255., 188/255., 1  # TEXT_HINT
                     background_color: 18/255., 20/255., 38/255., 1  # INPUT_BG
                     background_normal: "" 
-                    padding: [15, (self.height - self.line_height) / 2]
+                    padding: [dp(15), (self.height - self.line_height) / 2]
                     on_text_validate: root.login(username_input.text)
 
             Button:
                 text: "ENTER"
-                size_hint: (None, None)
-                size: (320, 60)
+                size_hint: (0.9, None)
+                height: dp(60)
                 pos_hint: {"center_x": 0.5}
                 background_normal: ""
-                background_color: 31/255., 38/255., 68/255., 1  # BROWN
+                background_color: 26/255, 31/255, 58/255, 1  # DARK_BG
                 color: 242/255., 245/255., 255/255., 1  # TEXT_PRIMARY
                 bold: True
                 font_size: "20sp"
                 on_press: root.login(username_input.text)
                 canvas.after:
                     Color:
-                        rgba: 132/255., 99/255., 255/255., 1  # OTHER_COLOR (purple border)
+                        rgba: 78/255, 138/255, 255/255, 1  # OWN_COLOR (blue border)
                     Line:
                         rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
                         width: 1.5
@@ -156,12 +157,12 @@ ScreenManager:
             # Header with Exit button
             BoxLayout:
                 size_hint_y: None
-                height: 70
-                padding: [15, 10]
-                spacing: 10
+                height: dp(70)
+                padding: [dp(15), dp(10)]
+                spacing: dp(10)
                 canvas.before:
                     Color:
-                        rgba: 31/255., 38/255., 68/255., 1  # BROWN (navbar)
+                        rgba: 26/255., 31/255., 58/255., 1  # DARK_BG (navbar)
                     Rectangle:
                         pos: self.pos
                         size: self.size
@@ -169,10 +170,10 @@ ScreenManager:
                 Button:
                     text: "EXIT"
                     size_hint: (None, None)
-                    size: (85, 45)
+                    size: (dp(85), dp(45))
                     pos_hint: {"center_y": 0.5}
                     background_normal: ""
-                    background_color: 31/255., 38/255., 68/255., 1  # BROWN
+                    background_color: 26/255., 31/255., 58/255., 1  # DARK_BG
                     color: 1, 1, 1, 1
                     bold: True
                     canvas.after:
@@ -191,17 +192,19 @@ ScreenManager:
                     bold: True
                     font_size: "18sp"
                     halign: "right"
+                    valign: "middle"
                     text_size: self.size
 
             Label:
                 text: "Chats"
                 size_hint_y: None
-                height: 50
+                height: dp(50)
                 color: 1, 1, 1, 1
                 bold: True
                 font_size: "18sp"
                 halign: "left"
-                padding: 15, 0
+                valign: "middle"
+                padding: dp(15), 0
                 text_size: self.size
                 canvas.before:
                     Color:
@@ -226,14 +229,15 @@ ScreenManager:
                     orientation: "vertical"
                     size_hint_y: None
                     height: self.minimum_height
-                    padding: [15, 10]
-                    spacing: 12
+                    padding: [dp(15), dp(10)]
+                    spacing: dp(12)
 
         # Sidebar user list
         BoxLayout:
             orientation: "vertical"
-            size_hint_x: 0.28
-            spacing: 10
+            size_hint_x: None
+            width: max(dp(150), root.width * 0.28)
+            spacing: dp(10)
             canvas.before:
                 Color:
                     rgba: 14/255., 16/255., 32/255., 1  # BASE_BG
@@ -242,7 +246,7 @@ ScreenManager:
                     size: self.size
             canvas.after:
                 Color:
-                    rgba: 31/255., 38/255., 68/255., 1  # BROWN background
+                    rgba: 26/255., 31/255., 58/255., 1  # DARK_BG background
                 Line:
                     rectangle: (self.x, self.y, self.width, self.height)
                     width: 1.5
@@ -250,7 +254,7 @@ ScreenManager:
             Label:
                 text: "Users Online"
                 size_hint_y: None
-                height: 30
+                height: dp(30)
                 color: 1, 1, 1, 1
                 bold: True
                 canvas.before:
@@ -269,8 +273,8 @@ ScreenManager:
                     orientation: "vertical"
                     size_hint_y: None
                     height: self.minimum_height
-                    spacing: 10
-                    padding: [5, 8]
+                    spacing: dp(10)
+                    padding: [dp(5), dp(8)]
 
 <ChatScreen>:
     name: "chat"
@@ -280,9 +284,9 @@ ScreenManager:
         # Header with back button
         BoxLayout:
             size_hint_y: None
-            height: 70
-            padding: [15, 10]
-            spacing: 10
+            height: dp(70)
+            padding: [dp(15), dp(10)]
+            spacing: dp(10)
             canvas.before:
                 Color:
                     rgba: 26/255., 31/255., 58/255., 1  # CARD_BG (navbar)
@@ -293,9 +297,9 @@ ScreenManager:
             Button:
                 text: "<--"
                 size_hint: (None, None)
-                size: (80, 45)
+                size: (dp(80), dp(45))
                 background_normal: ""
-                background_color: 31/255., 38/255., 68/255., 1  # BROWN
+                background_color: 26/255, 31/255, 58/255, 1  # DARK_BG
                 color: 242/255., 245/255., 255/255., 1  # TEXT_PRIMARY
                 bold: True
                 font_size: "24sp"
@@ -314,6 +318,7 @@ ScreenManager:
                 bold: True
                 font_size: "18sp"
                 halign: "left"
+                valign: "middle"
                 text_size: self.size
 
             Label:
@@ -323,6 +328,7 @@ ScreenManager:
                 bold: True
                 font_size: "18sp"
                 halign: "right"
+                valign: "middle"
                 text_size: self.size
 
         ScrollView:
@@ -341,15 +347,15 @@ ScreenManager:
                 orientation: "vertical"
                 size_hint_y: None
                 height: self.minimum_height
-                padding: [10, 15]
-                spacing: 15
+                padding: [dp(10), dp(15)]
+                spacing: dp(15)
                 pos_hint: {'top': 1}
 
         BoxLayout:
             size_hint_y: None
-            height: 90
-            padding: 15
-            spacing: 10
+            height: dp(90)
+            padding: dp(15)
+            spacing: dp(10)
             canvas.before:
                 Color:
                     rgba: 26/255., 31/255., 58/255., 1  # CARD_BG
@@ -364,15 +370,15 @@ ScreenManager:
                 foreground_color: 242/255., 245/255., 255/255., 1  # TEXT_PRIMARY
                 hint_text_color: 140/255., 154/255., 188/255., 1  # TEXT_HINT
                 background_color: 18/255., 20/255., 38/255., 1  # INPUT_BG
-                padding: [15, (self.height - self.line_height) / 2]
+                padding: [dp(15), (self.height - self.line_height) / 2]
                 on_text_validate: root.send_message(message_input.text)
 
             Button:
                 text: "SEND"
                 size_hint_x: None
-                width: 110
+                width: dp(110)
                 background_normal: ""
-                background_color: 31/255., 38/255., 68/255., 1  # BROWN
+                background_color: 26/255, 31/255, 58/255, 1  # DARK_BG  
                 color: 242/255., 245/255., 255/255., 1  # TEXT_PRIMARY
                 bold: True
                 on_press: root.send_message(message_input.text)
@@ -492,13 +498,13 @@ class LoginScreen(Screen):
     def show_server_offline_popup(self):
         content = BoxLayout(orientation="vertical", spacing=15, padding=20)
         content.add_widget(
-            Label(text="server is down try again later", font_size=25))
+            Label(text="server is down try again later", font_size=18))
         btn = Button(text="OK", size_hint_y=None, height=45, background_normal="",
-                     background_color=BROWN, color=TEXT_PRIMARY, bold=True)
+                     background_color=DARK_BG, color=TEXT_PRIMARY, bold=True)
 
         # Add rounded border
         with btn.canvas.after:
-            Color(*OTHER_COLOR)
+            Color(*OWN_COLOR)
             btn.border_line = Line(rounded_rectangle=(
                 btn.x, btn.y, btn.width, btn.height, 8), width=1.5)
         btn.bind(pos=lambda inst, val: setattr(inst.border_line, 'rounded_rectangle', (inst.x, inst.y, inst.width, inst.height, 8)),
@@ -507,6 +513,9 @@ class LoginScreen(Screen):
         content.add_widget(btn)
         popup = Popup(title="Error", content=content,
                       size_hint=(0.7, 0.3), auto_dismiss=False)
+        popup.background = ""
+        popup.background_color = BASE_BG
+        popup.title_size = 20
         btn.bind(on_release=lambda x: self.return_to_login(popup))
         popup.open()
         # Give focus to the button by simulating a keyboard event
@@ -515,13 +524,13 @@ class LoginScreen(Screen):
     def show_username_taken_popup(self):
         content = BoxLayout(orientation="vertical", spacing=15, padding=20)
         content.add_widget(
-            Label(text="Username already taken. Please choose another.", font_size=22))
+            Label(text="Username already taken. Please choose another.", font_size=18))
         btn = Button(text="OK", size_hint_y=None, height=45, background_normal="",
-                     background_color=BROWN, color=TEXT_PRIMARY, bold=True)
+                     background_color=DARK_BG, color=TEXT_PRIMARY, bold=True)
 
         # Add rounded border
         with btn.canvas.after:
-            Color(*OTHER_COLOR)
+            Color(*OWN_COLOR)
             btn.border_line = Line(rounded_rectangle=(
                 btn.x, btn.y, btn.width, btn.height, 8), width=1.5)
         btn.bind(pos=lambda inst, val: setattr(inst.border_line, 'rounded_rectangle', (inst.x, inst.y, inst.width, inst.height, 8)),
@@ -530,6 +539,9 @@ class LoginScreen(Screen):
         content.add_widget(btn)
         popup = Popup(title="Username Error", content=content,
                       size_hint=(0.7, 0.3), auto_dismiss=False)
+        popup.background = ""
+        popup.background_color = BASE_BG
+        popup.title_size = 20
         btn.bind(on_release=lambda x: self._on_popup_close_login(popup))
         popup.open()
         # Give focus to the button by simulating a keyboard event
@@ -631,17 +643,18 @@ class UserButton(ButtonBehavior, BoxLayout):
     """Custom button for online users with rounded corners and border"""
 
     def __init__(self, username, callback, **kwargs):
-        super().__init__(size_hint_y=None, height=50, padding=(10, 8), **kwargs)
+        super().__init__(size_hint_y=None, height=dp(50), padding=(dp(10), dp(8)), **kwargs)
 
         # Background with rounded corners
         with self.canvas.before:
-            Color(*BROWN)
+            Color(*DARK_BG)
             self.bg = RoundedRectangle(
-                radius=[8], pos=self.pos, size=self.size)
+                radius=[dp(8)], pos=self.pos, size=self.size)
             # Border
             Color(*OTHER_COLOR)  # Matches "Users Online" label background
             self.border = Line(
-                rounded_rectangle=(self.x, self.y, self.width, self.height, 8),
+                rounded_rectangle=(
+                    self.x, self.y, self.width, self.height, dp(8)),
                 width=1.5
             )
 
@@ -654,7 +667,10 @@ class UserButton(ButtonBehavior, BoxLayout):
             bold=True,
             font_size="15sp",
             halign="center",
-            valign="middle"
+            valign="middle",
+            shorten=True,
+            shorten_from="right",
+            max_lines=1
         )
         label.bind(size=lambda inst, val: setattr(
             inst, "text_size", inst.size))
@@ -667,26 +683,26 @@ class UserButton(ButtonBehavior, BoxLayout):
         self.bg.pos = self.pos
         self.bg.size = self.size
         self.border.rounded_rectangle = (
-            self.x, self.y, self.width, self.height, 8)
+            self.x, self.y, self.width, self.height, dp(8))
 
 
 class ChatCard(ButtonBehavior, BoxLayout):
     def __init__(self, title, chat_id, parent_with_open_chat, unread=0, **kwargs):
         super().__init__(orientation="horizontal", size_hint_y=None,
-                         height=80, padding=(15, 10), spacing=15, **kwargs)
+                         height=dp(80), padding=(dp(15), dp(10)), spacing=dp(15), **kwargs)
         self.chat_id = chat_id
 
         # Background
         with self.canvas.before:
-            Color(*CARD_BG)
+            Color(*DARK_BG)
             self.bg = RoundedRectangle(
-                radius=[10], pos=self.pos, size=self.size)
+                radius=[dp(10)], pos=self.pos, size=self.size)
 
         self.bind(pos=lambda inst, val: setattr(self.bg, "pos", inst.pos),
                   size=lambda inst, val: setattr(self.bg, "size", inst.size))
 
         # Chat info
-        info_box = BoxLayout(orientation="vertical", spacing=5)
+        info_box = BoxLayout(orientation="vertical", spacing=dp(5))
 
         title_label = Label(
             text=title,
@@ -696,7 +712,10 @@ class ChatCard(ButtonBehavior, BoxLayout):
             halign="left",
             valign="middle",
             size_hint_y=None,
-            height=25
+            height=25,
+            shorten=True,
+            shorten_from="right",
+            max_lines=1
         )
         title_label.bind(size=lambda inst, val: setattr(
             inst, "text_size", inst.size))
@@ -708,7 +727,10 @@ class ChatCard(ButtonBehavior, BoxLayout):
             halign="left",
             valign="middle",
             size_hint_y=None,
-            height=20
+            height=20,
+            shorten=True,
+            shorten_from="right",
+            max_lines=1
         )
         unread_label.bind(size=lambda inst, val: setattr(
             inst, "text_size", inst.size))
@@ -954,13 +976,13 @@ class MainScreen(Screen):
     def show_disconnect_popup(self):
         content = BoxLayout(orientation="vertical", spacing=15, padding=20)
         content.add_widget(
-            Label(text="Disconnected from server", font_size=16))
+            Label(text="Disconnected from server", font_size=18))
         btn = Button(text="OK", size_hint_y=None, height=45, background_normal="",
-                     background_color=BROWN, color=TEXT_PRIMARY, bold=True)
+                     background_color=DARK_BG, color=TEXT_PRIMARY, bold=True)
 
         # Add rounded border
         with btn.canvas.after:
-            Color(*OTHER_COLOR)
+            Color(*OWN_COLOR)
             btn.border_line = Line(rounded_rectangle=(
                 btn.x, btn.y, btn.width, btn.height, 8), width=1.5)
         btn.bind(pos=lambda inst, val: setattr(inst.border_line, 'rounded_rectangle', (inst.x, inst.y, inst.width, inst.height, 8)),
@@ -969,6 +991,9 @@ class MainScreen(Screen):
         content.add_widget(btn)
         popup = Popup(title="Error", content=content,
                       size_hint=(0.7, 0.3), auto_dismiss=False)
+        popup.background = ""
+        popup.background_color = BASE_BG
+        popup.title_size = 20
         btn.bind(on_release=lambda x: self.return_to_login(popup))
         popup.open()
         # Give focus to the button by pressing it after a short delay
@@ -978,13 +1003,13 @@ class MainScreen(Screen):
         """Show popup when a user in a private chat disconnects"""
         content = BoxLayout(orientation="vertical", spacing=15, padding=20)
         content.add_widget(
-            Label(text=f"{username} has disconnected", font_size=16))
+            Label(text=f"{username} has disconnected", font_size=18))
         btn = Button(text="OK", size_hint_y=None, height=45, background_normal="",
-                     background_color=BROWN, color=TEXT_PRIMARY, bold=True)
+                     background_color=DARK_BG, color=TEXT_PRIMARY, bold=True)
 
         # Add rounded border
         with btn.canvas.after:
-            Color(*OTHER_COLOR)
+            Color(*OWN_COLOR)
             btn.border_line = Line(rounded_rectangle=(
                 btn.x, btn.y, btn.width, btn.height, 8), width=1.5)
         btn.bind(pos=lambda inst, val: setattr(inst.border_line, 'rounded_rectangle', (inst.x, inst.y, inst.width, inst.height, 8)),
@@ -993,6 +1018,9 @@ class MainScreen(Screen):
         content.add_widget(btn)
         popup = Popup(title="User Disconnected", content=content,
                       size_hint=(0.7, 0.3), auto_dismiss=False)
+        popup.background = ""
+        popup.background_color = BASE_BG
+        popup.title_size = 20
         btn.bind(on_release=lambda x: popup.dismiss())
         popup.open()
         # Give focus to the button by simulating a keyboard event
@@ -1062,7 +1090,7 @@ class ChatScreen(Screen):
         time_str = datetime.now().strftime("%H:%M")
 
         bubble_layout = BoxLayout(
-            orientation='vertical', size_hint=(None, None), padding=(12, 8), spacing=5)
+            orientation='vertical', size_hint=(None, None), padding=(dp(12), dp(8)), spacing=dp(5))
 
         # Username label
         username_label = Label(
@@ -1095,13 +1123,14 @@ class ChatScreen(Screen):
 
         # Defer text_size until layout is ready to avoid 0-width wrap
         def set_text_size(_dt=None, width=None):
-            w = width if width is not None else self.ids.chat_box.width * 0.75
-            msg_label.text_size = (max(10, w), None)
+            # Use min to ensure it doesn't exceed screen width, with better mobile sizing
+            max_width = width if width is not None else self.ids.chat_box.width * 0.7
+            msg_label.text_size = (max(dp(100), min(max_width, dp(300))), None)
 
         # Initial scheduling and live binding to container width
         Clock.schedule_once(set_text_size, 0)
         self.ids.chat_box.bind(
-            width=lambda inst, val: set_text_size(width=val * 0.75))
+            width=lambda inst, val: set_text_size(width=val * 0.7))
 
         # Time label
         time_label = Label(
@@ -1139,7 +1168,7 @@ class ChatScreen(Screen):
         with bubble_layout.canvas.before:
             Color(*bubble_color)
             bubble_layout.bg = RoundedRectangle(
-                radius=[12], pos=bubble_layout.pos, size=bubble_layout.size)
+                radius=[dp(12)], pos=bubble_layout.pos, size=bubble_layout.size)
 
         bubble_layout.bind(pos=lambda inst, v: setattr(inst.bg, "pos", inst.pos),
                            size=lambda inst, v: setattr(inst.bg, "size", inst.size))
@@ -1153,15 +1182,15 @@ class ChatScreen(Screen):
         # Create centered container
         container = BoxLayout(
             size_hint_y=None,
-            height=50,
-            padding=(10, 5)
+            height=dp(50),
+            padding=(dp(10), dp(5))
         )
 
         # Create system message bubble
         bubble_layout = BoxLayout(
             orientation='vertical',
             size_hint=(None, None),
-            padding=(15, 8),
+            padding=(dp(15), dp(8)),
             pos_hint={'center_x': 0.5}
         )
 
@@ -1181,13 +1210,14 @@ class ChatScreen(Screen):
 
         # Defer text_size until layout is ready to avoid 0-width wrap
         def set_text_size(_dt=None, width=None):
-            w = width if width is not None else self.ids.chat_box.width * 0.6
-            msg_label.text_size = (max(10, w), None)
+            # Use min to ensure it doesn't exceed screen width
+            max_width = width if width is not None else self.ids.chat_box.width * 0.55
+            msg_label.text_size = (max(dp(100), min(max_width, dp(250))), None)
 
         # Initial scheduling and live binding to container width
         Clock.schedule_once(set_text_size, 0)
         self.ids.chat_box.bind(
-            width=lambda inst, val: set_text_size(width=val * 0.6))
+            width=lambda inst, val: set_text_size(width=val * 0.55))
 
         time_label = Label(
             text=time_str,
@@ -1218,7 +1248,7 @@ class ChatScreen(Screen):
         with bubble_layout.canvas.before:
             Color(*SYSTEM_COLOR)
             bubble_layout.bg = RoundedRectangle(
-                radius=[12],
+                radius=[dp(12)],
                 pos=bubble_layout.pos,
                 size=bubble_layout.size
             )
@@ -1270,6 +1300,10 @@ class ChatScreen(Screen):
 
 class ChatApp(App):
     def build(self):
+        # Set window title and icon
+        self.title = "Lord of the Pings"
+        self.icon = "Lotp_Icon_BP.ico"  # Change to your .ico file path if needed
+
         # Start server discovery when app starts
         start_discovery()
         return Builder.load_string(KV)

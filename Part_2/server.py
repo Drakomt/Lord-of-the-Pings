@@ -18,9 +18,10 @@ SERVER_HOST = os.environ.get("SERVER_HOST", "0.0.0.0")
 SERVER_PORT = int(os.environ.get("SERVER_PORT", 9000))
 # ===========================
 
-BACKGROUND_COLOR = "#0F1218"
-ACCENT_COLOR = "#2E4A62"
-OTHER_COLOR = "#2B2B2B"
+BACKGROUND_COLOR = "#0E1020"
+ACCENT_COLOR = "#4E8AFF"
+HOVER_COLOR = "#3357A0"
+OTHER_COLOR = "#1A1F3A"
 TEXT_COLOR = "#F2F2F2"
 
 # ====== DISCOVERY CONFIG ======
@@ -186,11 +187,11 @@ app.iconbitmap(icon_path)
 
 # ----- Layout -----
 frame_left = ctk.CTkFrame(app, width=200, corner_radius=15,
-                          fg_color="#111821", border_color=ACCENT_COLOR, border_width=1)
+                          fg_color=OTHER_COLOR, border_color=ACCENT_COLOR, border_width=1)
 frame_left.pack(side="left", fill="y", padx=10, pady=10)
 
 frame_right = ctk.CTkFrame(
-    app, corner_radius=15, fg_color="#111821", border_color=ACCENT_COLOR, border_width=1)
+    app, corner_radius=15, fg_color=OTHER_COLOR, border_color=ACCENT_COLOR, border_width=1)
 frame_right.pack(side="right", fill="both", expand=True, padx=10, pady=10)
 
 # ----- Online Users -----
@@ -238,7 +239,7 @@ def update_user_list():
                 users_list,
                 text=username,
                 fg_color=ACCENT_COLOR,
-                hover_color="#3B5D7B",
+                hover_color=HOVER_COLOR,
                 text_color=TEXT_COLOR,
                 command=lambda s=sock: disconnect_client(s)
             )

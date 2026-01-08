@@ -22,19 +22,19 @@ from kivy.uix.scrollview import ScrollView
 from kivy.graphics import Color, Line, RoundedRectangle
 
 # ============================================
-# AETHER THEME - Blue / Purple Palette
+# AETHER THEME - Blue / Purple Palette (RGBA accurate)
 # ============================================
 # BASE_BG:      #0E1020 - background
-# CARD_BG:      #1A1F3A - cards, navbar, buttons
+# DARK_BG:      #1A1F3A - cards, navbar, buttons
 # OWN_COLOR:    #4E8AFF - your messages / primary accent
 # OTHER_COLOR:  #8463FF - other messages / secondary accent
 # TEXT_PRIMARY: #F2F5FF - primary text
 # TEXT_HINT:    #8C9ABC - secondary text
 # SYSTEM_COLOR: #2C3456 - system messages
 # INPUT_BG:     #121426 - text input backgrounds
+# ALERT_COLOR:  #FF58A0 - alerts/errors
 
 BASE_BG = (14/255, 16/255, 32/255, 1)
-# Dark background for cards, navbars, buttons
 DARK_BG = (26/255, 31/255, 58/255, 1)
 OWN_COLOR = (78/255, 138/255, 255/255, 1)
 OTHER_COLOR = (132/255, 99/255, 255/255, 1)

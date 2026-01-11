@@ -6,6 +6,7 @@
 
 import socket
 import threading
+import random
 import os
 import time
 import customtkinter as ctk
@@ -32,6 +33,7 @@ DISCOVERY_MESSAGE = f"LOTP_SERVER|{SERVER_PORT}"
 
 clients = {}        # socket -> username
 clients_lock = threading.Lock()
+user_avatars = {}   # username -> avatar filename
 
 
 def discovery_broadcast_thread():
@@ -52,6 +54,13 @@ def discovery_broadcast_thread():
             pass
         time.sleep(DISCOVERY_INTERVAL)
 
+def get_random_avatar():
+    avatars_dir = os.path.join("assets", "avatars")
+    try:
+        avatars = [f for f in os.listdir(avatars_dir) if f.endswith(".png")]
+        return random.choice(avatars) if avatars else None
+    except:
+        return None
 
 # ================= SERVER LOGIC =================
 
@@ -71,6 +80,10 @@ def broadcast_user_list():
         usernames = list(clients.values())
     broadcast("USERLIST|" + ",".join(usernames))
 
+def broadcast_avatars():
+    for username, avatar in user_avatars.items():
+        if avatar:
+            broadcast(f"AVATAR|{username}|{avatar}")
 
 def send_private(sender_socket, target_username, message):
     with clients_lock:
@@ -104,6 +117,7 @@ def disconnect_client(client_socket):
     except:
         pass
     if username:
+        user_avatars.pop(username, None)
         log(f"[-] {username} disconnected")
         broadcast(f"*** {username} left the chat ***")
         update_user_list()
@@ -123,11 +137,14 @@ def handle_client(client_socket, address):
                 client_socket.close()
                 return
             clients[client_socket] = username
+            avatar = get_random_avatar()
+            user_avatars[username] = avatar
 
         log(f"[+] {username} joined from {address}")
         broadcast(f"*** {username} joined the chat ***")
         update_user_list()
         broadcast_user_list()
+        broadcast_avatars()
 
         while True:
             data = client_socket.recv(1024)

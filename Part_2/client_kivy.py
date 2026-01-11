@@ -18,6 +18,7 @@ from kivy.uix.label import Label
 from kivy.uix.button import Button
 from kivy.uix.popup import Popup
 from kivy.uix.widget import Widget
+from kivy.uix.image import Image
 from kivy.uix.scrollview import ScrollView
 from kivy.graphics import Color, Line, RoundedRectangle
 
@@ -50,6 +51,7 @@ load_dotenv()
 DISCOVERY_PORT = 9001
 DISCOVERY_TIMEOUT = 5  # seconds
 DISCOVERY_PREFIX = "LOTP_SERVER|"
+user_avatars = {}   # username -> avatar filename
 
 # ====== SERVER CONFIG ======
 # Will be set dynamically via discovery, fallback to env vars if discovery fails
@@ -184,16 +186,35 @@ ScreenManager:
                             width: 1.5
                     bold: True
                     on_press: root.Exit_to_login()
+                BoxLayout:
+                    orientation: "horizontal"
+                    spacing: dp(8)
+                    size_hint_x: 1  # allow it to fill remaining space
+                
+                    Image:
+                        id: current_user_avatar
+                        size_hint: None, None
+                        size: dp(28), dp(28)
+                        opacity: 0
+                        keep_ratio: True
+                        allow_stretch: False
+                
+                    Label:
+                        id: current_user_lbl
+                        text: f"User: {root.username}"
+                        color: 1, 1, 1, 1
+                        bold: True
+                        font_size: "18sp"
+                        halign: "left"
+                        valign: "middle"
+                        text_size: self.size  # important
+                        shorten: True
+                        shorten_from: "right"
 
-                Label:
-                    id: current_user_lbl
-                    text: "User:"
-                    color: 1, 1, 1, 1
-                    bold: True
-                    font_size: "18sp"
-                    halign: "right"
-                    valign: "middle"
-                    text_size: self.size
+                
+
+
+
 
             Label:
                 text: "Chats"
@@ -456,10 +477,14 @@ def on_discovery_finished(result):
 
 def server_online():
     try:
-        with socket.create_connection((HOST, SERVER_PORT), timeout=1.0) as s:
-            return True
-    except (socket.timeout, ConnectionRefusedError, OSError):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(0.8)
+        sock.connect((HOST, SERVER_PORT))
+        sock.close()
+        return True
+    except:
         return False
+
 
 # ============LoginsScreen==================================================
 
@@ -660,21 +685,37 @@ class UserButton(ButtonBehavior, BoxLayout):
 
         self.bind(pos=self._update_graphics, size=self._update_graphics)
 
+        # Horizontal layout
+        content = BoxLayout(orientation="horizontal", spacing=dp(10))
+
+        # Avatar
+        avatar_file = user_avatars.get(username)
+        if avatar_file:
+            avatar_path = os.path.join("assets", "avatars", avatar_file)
+            if os.path.exists(avatar_path):
+                avatar = Image(
+                    source=avatar_path,
+                    size_hint=(None, None),
+                    size=(dp(28), dp(28))
+                )
+                content.add_widget(avatar)
+
         # Username label
         label = Label(
             text=username,
             color=TEXT_PRIMARY,
             bold=True,
             font_size="15sp",
-            halign="center",
+            halign="left",
             valign="middle",
             shorten=True,
             shorten_from="right",
             max_lines=1
         )
-        label.bind(size=lambda inst, val: setattr(
-            inst, "text_size", inst.size))
-        self.add_widget(label)
+        label.bind(size=lambda inst, val: setattr(inst, "text_size", inst.size))
+
+        content.add_widget(label)
+        self.add_widget(content)
 
         # Bind click
         self.bind(on_release=callback)
@@ -702,8 +743,22 @@ class ChatCard(ButtonBehavior, BoxLayout):
                   size=lambda inst, val: setattr(self.bg, "size", inst.size))
 
         # Chat info
-        info_box = BoxLayout(orientation="vertical", spacing=dp(5))
+        info_box = BoxLayout(orientation="horizontal", spacing=dp(10))
 
+        # avatar של המשתמש השני (רק בצ'אט פרטי)
+        if chat_id != "general":
+            avatar_file = user_avatars.get(chat_id)
+            if avatar_file:
+                avatar_path = os.path.join("assets", "avatars", avatar_file)
+                if os.path.exists(avatar_path):
+                    avatar = Image(
+                        source=avatar_path,
+                        size_hint=(None, None),
+                        size=(dp(28), dp(28))
+                    )
+                    info_box.add_widget(avatar)
+
+        # שם הצ'אט / המשתמש
         title_label = Label(
             text=title,
             color=(1, 1, 1, 1),
@@ -717,26 +772,22 @@ class ChatCard(ButtonBehavior, BoxLayout):
             shorten_from="right",
             max_lines=1
         )
-        title_label.bind(size=lambda inst, val: setattr(
-            inst, "text_size", inst.size))
+        title_label.bind(size=lambda inst, val: setattr(inst, "text_size", inst.size))
+        info_box.add_widget(title_label)
 
+        # unread
         unread_label = Label(
-            text=f"{unread} new messages" if unread > 0 else "No new messages",
+            text=f"{unread} new messages" if unread > 0 else "",
             color=(0.7, 0.7, 0.7, 1),
             font_size="12sp",
             halign="left",
             valign="middle",
             size_hint_y=None,
-            height=20,
-            shorten=True,
-            shorten_from="right",
-            max_lines=1
+            height=20
         )
-        unread_label.bind(size=lambda inst, val: setattr(
-            inst, "text_size", inst.size))
-
-        info_box.add_widget(title_label)
+        unread_label.bind(size=lambda inst, val: setattr(inst, "text_size", inst.size))
         info_box.add_widget(unread_label)
+
         self.add_widget(info_box)
 
         # Bind click using the parent reference
@@ -763,6 +814,7 @@ class MainScreen(Screen):
         self.online_users = []
         self.ids.chats_container.clear_widgets()
         self.ids.user_list.clear_widgets()
+        user_avatars.clear()
 
     def Exit_to_login(self):
         self.user_initiated_disconnect = True
@@ -787,9 +839,25 @@ class MainScreen(Screen):
                         "|", 1)[1].split(",") if n]
                     Clock.schedule_once(
                         lambda dt, names=names: self.update_user_buttons(names))
+                elif message.startswith("AVATAR|"):
+                    _, username, avatar = message.split("|", 2)
+                    user_avatars[username] = avatar
+
+                    # אם זה האווטר שלי – טען אותו עכשיו (זה הזמן הנכון)
+                    if username == self.username:
+                        Clock.schedule_once(lambda dt: self.update_current_user_avatar())
+
+                    # ריענון UI
+                    Clock.schedule_once(lambda dt: self.update_user_buttons(self.online_users))
+                    Clock.schedule_once(lambda dt: self.update_chat_cards())
+
+
+
                 else:
                     Clock.schedule_once(
                         lambda dt, msg=message: self.route_message(msg))
+
+
         except:
             self.on_disconnected()
 
@@ -1036,6 +1104,23 @@ class MainScreen(Screen):
         popup.dismiss()
         self.manager.current = "login"
 
+    def update_current_user_avatar(self):
+        if not self.username:
+            return
+
+        avatar_file = user_avatars.get(self.username)
+        if not avatar_file:
+            self.ids.current_user_avatar.source = ""
+            return
+
+        avatar_path = os.path.join("assets", "avatars", avatar_file)
+        if os.path.exists(avatar_path):
+            self.ids.current_user_avatar.source = avatar_path
+            self.ids.current_user_avatar.opacity = 1
+            self.ids.current_user_avatar.reload()
+        else:
+            self.ids.current_user_avatar.source = ""
+
 
 class ChatScreen(Screen):
     def __init__(self, **kwargs):
@@ -1088,6 +1173,17 @@ class ChatScreen(Screen):
 
         bubble_color = OWN_COLOR if is_own else OTHER_COLOR
         time_str = datetime.now().strftime("%H:%M")
+        avatar_file = user_avatars.get(username)
+        avatar_widget = None
+
+        if avatar_file:
+            avatar_path = os.path.join("assets", "avatars", avatar_file)
+            if os.path.exists(avatar_path):
+                avatar_widget = Image(
+                    source=avatar_path,
+                    size_hint=(None, None),
+                    size=(dp(32), dp(32))
+                )
 
         bubble_layout = BoxLayout(
             orientation='vertical', size_hint=(None, None), padding=(dp(12), dp(8)), spacing=dp(5))
@@ -1162,6 +1258,8 @@ class ChatScreen(Screen):
             container.add_widget(Widget())
             container.add_widget(bubble_layout)
         else:
+            if avatar_widget:
+                container.add_widget(avatar_widget)
             container.add_widget(bubble_layout)
             container.add_widget(Widget())
 

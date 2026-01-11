@@ -189,15 +189,8 @@ ScreenManager:
                 BoxLayout:
                     orientation: "horizontal"
                     spacing: dp(8)
-                    size_hint_x: 1  # allow it to fill remaining space
-                
-                    Image:
-                        id: current_user_avatar
-                        size_hint: None, None
-                        size: dp(28), dp(28)
-                        opacity: 0
-                        keep_ratio: True
-                        allow_stretch: False
+                    size_hint_x: 1
+                    height: dp(28)
                 
                     Label:
                         id: current_user_lbl
@@ -205,14 +198,26 @@ ScreenManager:
                         color: 1, 1, 1, 1
                         bold: True
                         font_size: "18sp"
-                        halign: "left"
+                        halign: "right"
                         valign: "middle"
-                        text_size: self.size  # important
+                        text_size: self.size
+                        size_hint_x: 1
                         shorten: True
                         shorten_from: "right"
-
                 
-
+                    AnchorLayout:
+                        size_hint_x: None
+                        width: dp(28)
+                        anchor_x: "center"
+                        anchor_y: "center"
+                
+                        Image:
+                            id: current_user_avatar
+                            size_hint: None, None
+                            size: dp(28), dp(28)
+                            keep_ratio: True
+                            allow_stretch: False
+                            opacity: 1
 
 
 
@@ -665,135 +670,83 @@ class LoginScreen(Screen):
 
 
 class UserButton(ButtonBehavior, BoxLayout):
-    """Custom button for online users with rounded corners and border"""
-
     def __init__(self, username, callback, **kwargs):
-        super().__init__(size_hint_y=None, height=dp(50), padding=(dp(10), dp(8)), **kwargs)
+        # קריאה נפרדת לכל אב כדי למנוע TypeError
+        BoxLayout.__init__(self, size_hint_y=None, height=dp(40), padding=(dp(10), 0), **kwargs)
+        ButtonBehavior.__init__(self)
 
-        # Background with rounded corners
         with self.canvas.before:
             Color(*DARK_BG)
-            self.bg = RoundedRectangle(
-                radius=[dp(8)], pos=self.pos, size=self.size)
-            # Border
-            Color(*OTHER_COLOR)  # Matches "Users Online" label background
-            self.border = Line(
-                rounded_rectangle=(
-                    self.x, self.y, self.width, self.height, dp(8)),
-                width=1.5
-            )
+            self.bg = RoundedRectangle(radius=[dp(8)], pos=self.pos, size=self.size)
+            Color(*OTHER_COLOR)
+            self.border = Line(rounded_rectangle=(self.x, self.y, self.width, self.height, dp(8)), width=1.2)
 
         self.bind(pos=self._update_graphics, size=self._update_graphics)
 
-        # Horizontal layout
-        content = BoxLayout(orientation="horizontal", spacing=dp(10))
+        # תוכן ממורכז אנכית
+        content = BoxLayout(orientation="horizontal", spacing=dp(8), pos_hint={'center_y': 0.5})
 
-        # Avatar
         avatar_file = user_avatars.get(username)
         if avatar_file:
             avatar_path = os.path.join("assets", "avatars", avatar_file)
             if os.path.exists(avatar_path):
-                avatar = Image(
-                    source=avatar_path,
-                    size_hint=(None, None),
-                    size=(dp(28), dp(28))
-                )
-                content.add_widget(avatar)
+                content.add_widget(Image(source=avatar_path, size_hint=(None, None), size=(dp(24), dp(24))))
 
-        # Username label
-        label = Label(
-            text=username,
-            color=TEXT_PRIMARY,
-            bold=True,
-            font_size="15sp",
-            halign="left",
-            valign="middle",
-            shorten=True,
-            shorten_from="right",
-            max_lines=1
-        )
+        label = Label(text=username, color=TEXT_PRIMARY, bold=True, font_size="14sp",
+                      halign="left", valign="middle", shorten=True)
         label.bind(size=lambda inst, val: setattr(inst, "text_size", inst.size))
 
         content.add_widget(label)
         self.add_widget(content)
-
-        # Bind click
         self.bind(on_release=callback)
 
     def _update_graphics(self, *args):
         self.bg.pos = self.pos
         self.bg.size = self.size
-        self.border.rounded_rectangle = (
-            self.x, self.y, self.width, self.height, dp(8))
+        self.border.rounded_rectangle = (self.x, self.y, self.width, self.height, dp(8))
 
 
 class ChatCard(ButtonBehavior, BoxLayout):
     def __init__(self, title, chat_id, parent_with_open_chat, unread=0, **kwargs):
-        super().__init__(orientation="horizontal", size_hint_y=None,
-                         height=dp(80), padding=(dp(15), dp(10)), spacing=dp(15), **kwargs)
+        # גובה רזה 55dp וקריאה מופרדת ל-init
+        BoxLayout.__init__(self, orientation="horizontal", size_hint_y=None,
+                           height=dp(55), padding=(dp(15), dp(5)), spacing=dp(12), **kwargs)
+        ButtonBehavior.__init__(self)
+
         self.chat_id = chat_id
 
-        # Background
         with self.canvas.before:
             Color(*DARK_BG)
-            self.bg = RoundedRectangle(
-                radius=[dp(10)], pos=self.pos, size=self.size)
+            self.bg = RoundedRectangle(radius=[dp(10)], pos=self.pos, size=self.size)
 
         self.bind(pos=lambda inst, val: setattr(self.bg, "pos", inst.pos),
                   size=lambda inst, val: setattr(self.bg, "size", inst.size))
 
-        # Chat info
-        info_box = BoxLayout(orientation="horizontal", spacing=dp(10))
+        # מיכל טקסט ממורכז אנכית עם center_y
+        info_box = BoxLayout(orientation="vertical", size_hint_y=1, pos_hint={'center_y': 0.5})
 
-        # avatar של המשתמש השני (רק בצ'אט פרטי)
+        title_label = Label(text=title, color=(1, 1, 1, 1), bold=True, font_size="16sp",
+                            halign="left", valign="middle")
+        title_label.bind(size=lambda inst, val: setattr(inst, "text_size", inst.size))
+        info_box.add_widget(title_label)
+
+        if unread > 0:
+            unread_label = Label(text=f"{unread} new messages", color=OWN_COLOR,
+                                 font_size="11sp", halign="left", valign="middle")
+            unread_label.bind(size=lambda inst, val: setattr(inst, "text_size", inst.size))
+            info_box.add_widget(unread_label)
+
+        # אווטאר קטן ממורכז
         if chat_id != "general":
             avatar_file = user_avatars.get(chat_id)
             if avatar_file:
                 avatar_path = os.path.join("assets", "avatars", avatar_file)
                 if os.path.exists(avatar_path):
-                    avatar = Image(
-                        source=avatar_path,
-                        size_hint=(None, None),
-                        size=(dp(28), dp(28))
-                    )
-                    info_box.add_widget(avatar)
-
-        # שם הצ'אט / המשתמש
-        title_label = Label(
-            text=title,
-            color=(1, 1, 1, 1),
-            bold=True,
-            font_size="16sp",
-            halign="left",
-            valign="middle",
-            size_hint_y=None,
-            height=25,
-            shorten=True,
-            shorten_from="right",
-            max_lines=1
-        )
-        title_label.bind(size=lambda inst, val: setattr(inst, "text_size", inst.size))
-        info_box.add_widget(title_label)
-
-        # unread
-        unread_label = Label(
-            text=f"{unread} new messages" if unread > 0 else "",
-            color=(0.7, 0.7, 0.7, 1),
-            font_size="12sp",
-            halign="left",
-            valign="middle",
-            size_hint_y=None,
-            height=20
-        )
-        unread_label.bind(size=lambda inst, val: setattr(inst, "text_size", inst.size))
-        info_box.add_widget(unread_label)
+                    self.add_widget(Image(source=avatar_path, size_hint=(None, None),
+                                          size=(dp(30), dp(30)), pos_hint={'center_y': 0.5}))
 
         self.add_widget(info_box)
-
-        # Bind click using the parent reference
         self.bind(on_release=lambda inst: parent_with_open_chat.open_chat(chat_id))
-
-
 class MainScreen(Screen):
     username = StringProperty("")
     sock = None

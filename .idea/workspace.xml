@@ -7,7 +7,6 @@
     <list default="true" id="fb750fe3-aec4-4d08-ba62-17b9a2f99773" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Part_2/client_kivy.py" beforeDir="false" afterPath="$PROJECT_DIR$/Part_2/client_kivy.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Part_2/server.py" beforeDir="false" afterPath="$PROJECT_DIR$/Part_2/server.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -58,7 +57,7 @@
     &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
 }</component>
-  <component name="RunManager">
+  <component name="RunManager" selected="Python.client_kivy">
     <configuration name="client_kivy" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="Lord-of-the-Pings" />
       <option name="ENV_FILES" value="" />

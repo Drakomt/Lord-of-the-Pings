@@ -700,15 +700,19 @@ class LoginScreen(Screen):
             app.sock.connect((HOST, SERVER_PORT))
             app.sock.sendall(username.encode())
 
-            # Short wait to capture immediate server response (e.g., username taken)
-            app.sock.settimeout(1.0)
-            try:
-                prebuffer = app.sock.recv(1024)
-            except socket.timeout:
-                prebuffer = b""
-            finally:
-                # Return socket to blocking mode for listener thread
-                app.sock.settimeout(None)
+            # Drain the initial burst (user list + avatar assignments) before the listener spins up
+            app.sock.settimeout(0.4)
+            chunks = []
+            while True:
+                try:
+                    chunk = app.sock.recv(1024)
+                    if not chunk:
+                        break
+                    chunks.append(chunk)
+                except socket.timeout:
+                    break
+            prebuffer = b"".join(chunks)
+            app.sock.settimeout(None)
         except Exception as e:
             self.show_server_offline_popup()
             print("Connection error:", e)
@@ -746,6 +750,19 @@ class LoginScreen(Screen):
                         names = []
                     Clock.schedule_once(
                         lambda dt, names=names: main.update_user_buttons(names))
+                elif line.startswith("AVATAR|"):
+                    try:
+                        _, uname, avatar = line.split("|", 2)
+                        user_avatars[uname] = avatar
+                        if uname == username:
+                            Clock.schedule_once(
+                                lambda dt: main.update_current_user_avatar())
+                        Clock.schedule_once(
+                            lambda dt: main.update_user_buttons(main.online_users))
+                        Clock.schedule_once(
+                            lambda dt: main.update_chat_cards())
+                    except Exception:
+                        pass
                 else:
                     Clock.schedule_once(
                         lambda dt, m=line: main.route_message(m))

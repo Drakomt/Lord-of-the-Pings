@@ -27,7 +27,8 @@ from kivy.graphics import Color, Line, RoundedRectangle
 # AETHER THEME - Blue / Purple Palette (RGBA accurate)
 # ============================================
 # BASE_BG:      #0E1020 - background
-# DARK_BG:      #1A1F3A - cards, navbar, buttons
+# DARK_BG:      #1A1F3A - cards, navbar
+# DARK_BG2:     #121426 - buttons
 # OWN_COLOR:    #4E8AFF - your messages / primary accent
 # OTHER_COLOR:  #8463FF - other messages / secondary accent
 # TEXT_PRIMARY: #F2F5FF - primary text
@@ -38,6 +39,7 @@ from kivy.graphics import Color, Line, RoundedRectangle
 
 BASE_BG = (14/255, 16/255, 32/255, 1)
 DARK_BG = (26/255, 31/255, 58/255, 1)
+DARK_BG2 = (18/255, 20/255, 38/255, 1)
 OWN_COLOR = (78/255, 138/255, 255/255, 1)
 OTHER_COLOR = (132/255, 99/255, 255/255, 1)
 TEXT_PRIMARY = (242/255, 245/255, 255/255, 1)
@@ -146,7 +148,7 @@ ScreenManager:
                 height: dp(60)
                 pos_hint: {"center_x": 0.5}
                 background_normal: ""
-                background_color: 26/255, 31/255, 58/255, 1  # DARK_BG
+                background_color: 18/255, 20/255, 38/255, 1  # DARK_BG2
                 color: 242/255., 245/255., 255/255., 1  # TEXT_PRIMARY
                 bold: True
                 font_size: "20sp"
@@ -189,7 +191,7 @@ ScreenManager:
                     size: (dp(85), dp(45))
                     pos_hint: {"center_y": 0.5}
                     background_normal: ""
-                    background_color: 26/255., 31/255., 58/255., 1  # DARK_BG
+                    background_color: 18/255, 20/255, 38/255, 1  # DARK_BG2
                     color: 1, 1, 1, 1
                     bold: True
                     canvas.after:
@@ -314,7 +316,7 @@ ScreenManager:
                 size_hint: (None, None)
                 size: (dp(80), dp(45))
                 background_normal: ""
-                background_color: 26/255, 31/255, 58/255, 1  # DARK_BG
+                background_color: 18/255, 20/255, 38/255, 1  # DARK_BG2
                 color: 242/255., 245/255., 255/255., 1  # TEXT_PRIMARY
                 bold: True
                 font_size: "24sp"
@@ -391,7 +393,7 @@ ScreenManager:
                 size_hint_x: None
                 width: dp(110)
                 background_normal: ""
-                background_color: 26/255, 31/255, 58/255, 1  # DARK_BG  
+                background_color: 18/255, 20/255, 38/255, 1  # DARK_BG2  
                 color: 242/255., 245/255., 255/255., 1  # TEXT_PRIMARY
                 bold: True
                 on_press: root.send_message(message_input.text)
@@ -634,7 +636,7 @@ class UserBubbleWidget(BoxLayout):
         header_label = Label(
             text='User:',
             color=TEXT_HINT,
-            font_size='9sp',
+            font_size='12sp',
             size_hint=(None, None),
             height=dp(12),
             halign='left',
@@ -649,7 +651,7 @@ class UserBubbleWidget(BoxLayout):
         self.name_label = Label(
             text=username,
             color=TEXT_PRIMARY,
-            font_size='14sp',
+            font_size='18sp',
             bold=True,
             size_hint=(None, None),
             height=dp(20),
@@ -732,7 +734,7 @@ class LoginScreen(Screen):
         content.add_widget(
             Label(text="server is down try again later", font_size=18))
         btn = Button(text="OK", size_hint_y=None, height=45, background_normal="",
-                     background_color=DARK_BG, color=TEXT_PRIMARY, bold=True)
+                     background_color=DARK_BG2, color=TEXT_PRIMARY, bold=True)
 
         # Add rounded border
         with btn.canvas.after:
@@ -758,7 +760,7 @@ class LoginScreen(Screen):
         content.add_widget(
             Label(text="Username already taken. Please choose another.", font_size=18))
         btn = Button(text="OK", size_hint_y=None, height=45, background_normal="",
-                     background_color=DARK_BG, color=TEXT_PRIMARY, bold=True)
+                     background_color=DARK_BG2, color=TEXT_PRIMARY, bold=True)
 
         # Add rounded border
         with btn.canvas.after:
@@ -1256,7 +1258,7 @@ class MainScreen(Screen):
         content.add_widget(
             Label(text="Disconnected from server", font_size=18))
         btn = Button(text="OK", size_hint_y=None, height=45, background_normal="",
-                     background_color=DARK_BG, color=TEXT_PRIMARY, bold=True)
+                     background_color=DARK_BG2, color=TEXT_PRIMARY, bold=True)
 
         # Add rounded border
         with btn.canvas.after:
@@ -1283,7 +1285,7 @@ class MainScreen(Screen):
         content.add_widget(
             Label(text=f"{username} has disconnected", font_size=18))
         btn = Button(text="OK", size_hint_y=None, height=45, background_normal="",
-                     background_color=DARK_BG, color=TEXT_PRIMARY, bold=True)
+                     background_color=DARK_BG2, color=TEXT_PRIMARY, bold=True)
 
         # Add rounded border
         with btn.canvas.after:

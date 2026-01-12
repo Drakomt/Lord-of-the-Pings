@@ -808,10 +808,11 @@ class LoginScreen(Screen):
         if not username.strip():
             return
 
-        # If not using env override, make sure discovery has found the server first
-        if not USE_ENV_OVERRIDE and not DISCOVERED:
-            self.show_server_offline_popup()
-            return
+        # If not using env override, verify server is actually reachable
+        if not USE_ENV_OVERRIDE:
+            if not server_online():
+                self.show_server_offline_popup()
+                return
 
         app = App.get_running_app()
         prebuffer = b""

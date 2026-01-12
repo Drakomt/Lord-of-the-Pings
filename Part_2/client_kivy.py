@@ -20,6 +20,7 @@ from kivy.uix.popup import Popup
 from kivy.uix.widget import Widget
 from kivy.uix.image import Image
 from kivy.uix.scrollview import ScrollView
+from kivy.uix.anchorlayout import AnchorLayout
 from kivy.graphics import Color, Line, RoundedRectangle
 
 # ============================================
@@ -168,8 +169,9 @@ ScreenManager:
             padding: 0
             spacing: 0
 
-            # Header with Exit button
+            # Header with Exit button and User Bubble
             BoxLayout:
+                orientation: "horizontal"
                 size_hint_y: None
                 height: dp(70)
                 padding: [dp(15), dp(10)]
@@ -198,38 +200,15 @@ ScreenManager:
                             width: 1.5
                     bold: True
                     on_press: root.Exit_to_login()
-                BoxLayout:
-                    orientation: "horizontal"
-                    spacing: dp(8)
+                
+                AnchorLayout:
+                    anchor_x: "right"
+                    anchor_y: "center"
                     size_hint_x: 1
-                    height: dp(28)
-                
-                    Label:
-                        id: current_user_lbl
-                        text: f"User: {root.username}"
-                        color: 1, 1, 1, 1
-                        bold: True
-                        font_size: "18sp"
-                        halign: "right"
-                        valign: "middle"
-                        text_size: self.size
-                        size_hint_x: 1
-                        shorten: True
-                        shorten_from: "right"
-                
-                    AnchorLayout:
-                        size_hint_x: None
-                        width: dp(28)
-                        anchor_x: "center"
-                        anchor_y: "center"
-                
-                        Image:
-                            id: current_user_avatar
-                            size_hint: None, None
-                            size: dp(28), dp(28)
-                            keep_ratio: True
-                            allow_stretch: False
-                            opacity: 1
+                    
+                    UserBubbleWidget:
+                        id: user_bubble_widget
+                        size_hint: (None, None)
 
 
 
@@ -359,15 +338,13 @@ ScreenManager:
                 valign: "middle"
                 text_size: self.size
 
-            Label:
-                id: current_user_lbl
-                text: "User:"
-                color: 1, 1, 1, 1
-                bold: True
-                font_size: "18sp"
-                halign: "right"
-                valign: "middle"
-                text_size: self.size
+            AnchorLayout:
+                anchor_x: "right"
+                anchor_y: "center"
+                size_hint_x: 1
+                
+                UserBubbleWidget:
+                    id: user_bubble_widget
 
         ScrollView:
             id: chat_scroll
@@ -572,6 +549,151 @@ def server_online():
 
 
 # ============LoginsScreen==================================================
+
+
+class UserBubbleWidget(BoxLayout):
+    """Custom widget to display user info as a styled bubble"""
+
+    def __init__(self, username="", avatar_source=None, **kwargs):
+        # Set defaults but allow kwargs to override
+        if 'size_hint' not in kwargs:
+            kwargs['size_hint'] = (None, 1)
+        if 'height' not in kwargs:
+            kwargs['height'] = dp(50)
+        if 'width' not in kwargs:
+            kwargs['width'] = dp(280)
+
+        super().__init__(orientation='horizontal', spacing=dp(12), **kwargs)
+        self.username = username
+        self.avatar_widget = None
+        self.name_label = None
+        self.bubble_bg = None
+
+        self._build_widget(username, avatar_source)
+
+    def _build_widget(self, username, avatar_source):
+        """Build or rebuild the widget with new username and avatar"""
+        self.clear_widgets()
+        self.username = username
+
+        # Create a single bubble container with background that includes everything
+        bubble_container = BoxLayout(
+            orientation='horizontal',
+            # Equal left and right padding
+            padding=[dp(10), dp(6), dp(10), dp(6)],
+            spacing=dp(10),
+            size_hint=(None, None),
+            height=dp(50)
+        )
+
+        # Add bubble background (slightly darker than header)
+        with bubble_container.canvas.before:
+            Color(rgba=(18/255, 20/255, 38/255, 1))  # INPUT_BG - darker
+            self.bubble_bg = RoundedRectangle(
+                radius=[dp(10)],
+                pos=bubble_container.pos,
+                size=bubble_container.size
+            )
+            # Add border
+            Color(rgba=OTHER_COLOR)  # Purple border
+            self.bubble_border = Line(
+                rounded_rectangle=(bubble_container.x, bubble_container.y,
+                                   bubble_container.width, bubble_container.height, dp(10)),
+                width=1.5
+            )
+
+        def update_bubble_graphics(inst, val):
+            self.bubble_bg.pos = inst.pos
+            self.bubble_bg.size = inst.size
+            self.bubble_border.rounded_rectangle = (
+                inst.x, inst.y, inst.width, inst.height, dp(10))
+
+        bubble_container.bind(pos=update_bubble_graphics,
+                              size=update_bubble_graphics)
+
+        # Avatar inside bubble (if provided)
+        if avatar_source:
+            self.avatar_widget = Image(
+                source=avatar_source,
+                size_hint=(None, None),
+                size=(dp(36), dp(36))
+            )
+            bubble_container.add_widget(self.avatar_widget)
+        else:
+            self.avatar_widget = None
+
+        # Text container inside bubble
+        text_layout = BoxLayout(
+            orientation='vertical',
+            padding=[0, dp(2)],
+            spacing=dp(1),
+            size_hint=(None, None),
+            width=dp(90),
+            height=dp(38)
+        )
+
+        # "User:" header in small font like timestamps
+        header_label = Label(
+            text='User:',
+            color=TEXT_HINT,
+            font_size='9sp',
+            size_hint=(None, None),
+            height=dp(12),
+            halign='left',
+            valign='bottom'
+        )
+        header_label.bind(texture_size=lambda inst,
+                          val: setattr(inst, 'width', val[0]))
+        header_label.bind(size=lambda inst, val: setattr(
+            inst, 'text_size', (inst.width, None)))
+
+        # Username in larger font
+        self.name_label = Label(
+            text=username,
+            color=TEXT_PRIMARY,
+            font_size='14sp',
+            bold=True,
+            size_hint=(None, None),
+            height=dp(20),
+            halign='left',
+            valign='top'
+        )
+        self.name_label.bind(texture_size=lambda inst,
+                             val: setattr(inst, 'width', val[0]))
+        self.name_label.bind(size=lambda inst, val: setattr(
+            inst, 'text_size', (inst.width, None)))
+
+        text_layout.add_widget(header_label)
+        text_layout.add_widget(self.name_label)
+
+        bubble_container.add_widget(text_layout)
+
+        # Calculate bubble width based on content
+        def update_width(*args):
+            # avatar + spacing
+            avatar_width = (dp(36) + dp(10)) if avatar_source else 0
+            header_width = header_label.texture_size[0] if header_label.texture_size[0] > 0 else dp(
+                40)
+            name_width = self.name_label.texture_size[0] if self.name_label.texture_size[0] > 0 else dp(
+                60)
+            text_width = max(header_width, name_width)
+            # Total: left_padding + avatar + spacing + text + right_padding
+            bubble_container.width = dp(
+                10) + avatar_width + text_width + dp(10)
+            text_layout.width = text_width
+
+        # Bind to texture_size changes to update width dynamically
+        header_label.bind(texture_size=update_width)
+        self.name_label.bind(texture_size=update_width)
+
+        # Initial width calculation
+        update_width()
+
+        self.add_widget(bubble_container)
+
+    def set_user(self, username, avatar_source=None):
+        """Update the widget with new user info"""
+        self._build_widget(username, avatar_source)
 
 
 class LoginScreen(Screen):
@@ -1037,7 +1159,18 @@ class MainScreen(Screen):
 
         holder = self.ids.user_list
         holder.clear_widgets()
-        self.ids.current_user_lbl.text = f"User: {self.username}"
+
+        # Update user bubble widget
+        avatar_file = user_avatars.get(self.username)
+        avatar_source = None
+        if avatar_file:
+            avatar_path = os.path.join(os.path.dirname(
+                os.path.abspath(__file__)), "assets", "avatars", avatar_file)
+            if os.path.exists(avatar_path):
+                avatar_source = avatar_path
+
+        self.ids.user_bubble_widget.set_user(self.username, avatar_source)
+
         for name in self.online_users:
             user_btn = UserButton(
                 name,
@@ -1187,18 +1320,15 @@ class MainScreen(Screen):
             return
 
         avatar_file = user_avatars.get(self.username)
-        if not avatar_file:
-            self.ids.current_user_avatar.source = ""
-            return
+        avatar_source = None
+        if avatar_file:
+            avatar_path = os.path.join(os.path.dirname(
+                os.path.abspath(__file__)), "assets", "avatars", avatar_file)
+            if os.path.exists(avatar_path):
+                avatar_source = avatar_path
 
-        avatar_path = os.path.join(os.path.dirname(
-            os.path.abspath(__file__)), "assets", "avatars", avatar_file)
-        if os.path.exists(avatar_path):
-            self.ids.current_user_avatar.source = avatar_path
-            self.ids.current_user_avatar.opacity = 1
-            self.ids.current_user_avatar.reload()
-        else:
-            self.ids.current_user_avatar.source = ""
+        # Update the bubble widget
+        self.ids.user_bubble_widget.set_user(self.username, avatar_source)
 
 
 class ChatScreen(Screen):
@@ -1216,7 +1346,19 @@ class ChatScreen(Screen):
             self.ids.chat_title.text = "General Chat"
         else:
             self.ids.chat_title.text = f"{chat_id}"
-        self.ids.current_user_lbl.text = f"User: {main_screen.username}"
+
+        # Update user bubble widget
+        avatar_file = user_avatars.get(main_screen.username)
+        avatar_source = None
+        if avatar_file:
+            avatar_path = os.path.join(os.path.dirname(
+                os.path.abspath(__file__)), "assets", "avatars", avatar_file)
+            if os.path.exists(avatar_path):
+                avatar_source = avatar_path
+
+        self.ids.user_bubble_widget.set_user(
+            main_screen.username, avatar_source)
+
         # Load messages
         self.refresh_messages()
         # Auto-focus the message input

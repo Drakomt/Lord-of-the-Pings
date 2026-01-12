@@ -49,14 +49,26 @@ load_dotenv()
 
 # ====== DISCOVERY CONFIG ======
 DISCOVERY_PORT = 9001
-DISCOVERY_TIMEOUT = 5  # seconds
+DISCOVERY_TIMEOUT = 10  # seconds - longer initial timeout
 DISCOVERY_PREFIX = "LOTP_SERVER|"
+DISCOVERY_RETRY_INTERVAL = 3  # seconds - retry every 3 seconds if not found
 user_avatars = {}   # username -> avatar filename
 
 # ====== SERVER CONFIG ======
-# Will be set dynamically via discovery, fallback to env vars if discovery fails
-HOST = os.environ.get("HOST", "127.0.0.1")
-SERVER_PORT = int(os.environ.get("SERVER_PORT", 9000))
+# Check if env vars are set - if yes, use them as manual override
+# If not, use broadcast discovery
+ENV_HOST = os.environ.get("HOST")
+ENV_PORT = os.environ.get("SERVER_PORT")
+USE_ENV_OVERRIDE = ENV_HOST is not None and ENV_PORT is not None
+
+if USE_ENV_OVERRIDE:
+    HOST = ENV_HOST
+    SERVER_PORT = int(ENV_PORT)
+else:
+    HOST = "127.0.0.1"  # Placeholder, will be set by discovery
+    SERVER_PORT = 9000  # Placeholder, will be set by discovery
+
+DISCOVERED = False  # Flag to track if server was discovered
 
 # ====== Screen Design kivy ======
 
@@ -418,63 +430,131 @@ ScreenManager:
 
 # ============ SERVER DISCOVERY FUNCTIONS =============
 
+discovery_thread_stop = False  # Flag to stop the discovery thread
 
-def discover_server():
+
+def try_broadcast_discovery():
     """
-    Listens for UDP broadcast messages from the server.
+    Tries to discover server via UDP broadcast.
     Returns (ip, port) or None if not found within timeout.
     """
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    sock.bind(("", DISCOVERY_PORT))
-    sock.settimeout(1)
+    try:
+        sock = socket.socket(
+            socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind(("", DISCOVERY_PORT))
+        sock.settimeout(1)
 
-    start_time = time.time()
+        start_time = time.time()
 
-    while time.time() - start_time < DISCOVERY_TIMEOUT:
-        try:
-            data, addr = sock.recvfrom(1024)
-            message = data.decode()
+        while time.time() - start_time < DISCOVERY_TIMEOUT:
+            try:
+                data, addr = sock.recvfrom(1024)
+                message = data.decode()
 
-            if message.startswith(DISCOVERY_PREFIX):
-                port = int(message.split("|")[1])
-                server_ip = addr[0]
-                sock.close()
-                return server_ip, port
+                if message.startswith(DISCOVERY_PREFIX):
+                    port = int(message.split("|")[1])
+                    server_ip = addr[0]
+                    sock.close()
+                    return server_ip, port
 
-        except socket.timeout:
-            continue
-        except:
-            break
+            except socket.timeout:
+                continue
+            except:
+                break
 
-    sock.close()
+        sock.close()
+    except:
+        pass
+
     return None
+
+
+def try_env_server():
+    """
+    Tries to connect to server from env vars.
+    Returns (ip, port) if successful, None otherwise.
+    """
+    env_host = os.environ.get("HOST", "127.0.0.1")
+    env_port = int(os.environ.get("SERVER_PORT", 9000))
+
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(1)
+        sock.connect((env_host, env_port))
+        sock.close()
+        return env_host, env_port
+    except:
+        return None
+
+
+def find_server():
+    """
+    Finds server via broadcast discovery.
+    If env vars are set (manual override), uses those instead.
+    Returns (ip, port) or None if not found.
+    """
+    # If env vars are manually set, use those instead of discovery
+    if USE_ENV_OVERRIDE:
+        return (ENV_HOST, int(ENV_PORT))
+
+    # Otherwise, try broadcast discovery
+    return try_broadcast_discovery()
 
 
 def start_discovery():
     """
     Starts server discovery in a background thread.
-    Updates the app's HOST and SERVER_PORT when found.
+    Tries broadcast and env vars, retries if not found.
+    Stops when connection is established.
     """
     def worker():
-        result = discover_server()
-        Clock.schedule_once(lambda dt: on_discovery_finished(result))
+        global discovery_thread_stop, HOST, SERVER_PORT, DISCOVERED
+
+        # If env override is set, use it immediately without retrying
+        if USE_ENV_OVERRIDE:
+            HOST = ENV_HOST
+            SERVER_PORT = int(ENV_PORT)
+            DISCOVERED = True
+            print(f"[Discovery] Using env override: {HOST}:{SERVER_PORT}")
+            discovery_thread_stop = True  # Stop discovery thread
+            return
+
+        # Otherwise, search for broadcast
+        while not discovery_thread_stop:
+            result = find_server()
+
+            if result:
+                server_ip, server_port = result
+                HOST = server_ip
+                SERVER_PORT = server_port
+                DISCOVERED = True
+                print(
+                    f"[Discovery] Found server via broadcast at {HOST}:{SERVER_PORT}")
+                break  # Stop searching once found
+            else:
+                # Not found, wait before retrying
+                if not discovery_thread_stop:
+                    time.sleep(DISCOVERY_RETRY_INTERVAL)
 
     threading.Thread(target=worker, daemon=True).start()
 
 
-def on_discovery_finished(result):
+def stop_discovery():
     """
-    Handle discovery result and update global HOST and SERVER_PORT.
+    Stops the discovery thread.
     """
-    global HOST, SERVER_PORT
-    if result:
-        server_ip, server_port = result
-        HOST = server_ip
-        SERVER_PORT = server_port
-        print(f"[Discovery] Discovered server at {HOST}:{SERVER_PORT}")
-    else:
-        print("[Discovery] Server not found automatically, using env vars")
+    global discovery_thread_stop
+    discovery_thread_stop = True
+
+
+def restart_discovery():
+    """
+    Restarts the discovery thread (used after disconnect).
+    """
+    global discovery_thread_stop
+    discovery_thread_stop = False
+    start_discovery()
 
 
 # ============ if server online check function =============
@@ -496,7 +576,9 @@ def server_online():
 
 class LoginScreen(Screen):
     def on_enter(self):
-        # This tells Kivy: "Run self.check_status every 1 second"
+        # Check server status immediately (don't wait for first interval)
+        threading.Thread(target=self.perform_ping, daemon=True).start()
+        # Then schedule periodic checks every 1 second
         Clock.schedule_interval(self.check_status, 1)
         # Auto-focus the username input
         Clock.schedule_once(lambda dt: setattr(
@@ -605,6 +687,12 @@ class LoginScreen(Screen):
     def login(self, username):
         if not username.strip():
             return
+
+        # If not using env override, make sure discovery has found the server first
+        if not USE_ENV_OVERRIDE and not DISCOVERED:
+            self.show_server_offline_popup()
+            return
+
         app = App.get_running_app()
         prebuffer = b""
         try:
@@ -661,6 +749,9 @@ class LoginScreen(Screen):
                 else:
                     Clock.schedule_once(
                         lambda dt, m=line: main.route_message(m))
+
+        # Stop discovery now that we're connected
+        stop_discovery()
 
         threading.Thread(target=main.listen_to_server, daemon=True).start()
         self.manager.current = "main"
@@ -1001,6 +1092,9 @@ class MainScreen(Screen):
         self.manager.current = "chat"
 
     def on_disconnected(self):
+        # Restart discovery to find the server again
+        restart_discovery()
+
         # Only show disconnect popup if it wasn't a user-initiated disconnect
         if not self.user_initiated_disconnect:
             Clock.schedule_once(lambda dt: self.show_disconnect_popup())

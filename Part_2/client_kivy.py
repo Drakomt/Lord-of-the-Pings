@@ -201,14 +201,12 @@ ScreenManager:
                     bold: True
                     on_press: root.Exit_to_login()
                 
-                AnchorLayout:
-                    anchor_x: "right"
-                    anchor_y: "center"
-                    size_hint_x: 1
-                    
-                    UserBubbleWidget:
-                        id: user_bubble_widget
-                        size_hint: (None, None)
+                Widget:  # spacer
+
+                UserBubbleWidget:
+                    id: user_bubble_widget
+                    size_hint_x: None
+
 
 
 
@@ -336,15 +334,15 @@ ScreenManager:
                 font_size: "18sp"
                 halign: "left"
                 valign: "middle"
-                text_size: self.size
+                size_hint_x: None
+                on_texture_size:
+                    self.width = self.texture_size[0] + dp(20)
 
-            AnchorLayout:
-                anchor_x: "right"
-                anchor_y: "center"
-                size_hint_x: 1
-                
-                UserBubbleWidget:
-                    id: user_bubble_widget
+            Widget: # spacer
+
+            UserBubbleWidget:
+                id: user_bubble_widget
+                size_hint_x: None
 
         ScrollView:
             id: chat_scroll
@@ -560,10 +558,10 @@ class UserBubbleWidget(BoxLayout):
             kwargs['size_hint'] = (None, 1)
         if 'height' not in kwargs:
             kwargs['height'] = dp(50)
-        if 'width' not in kwargs:
-            kwargs['width'] = dp(280)
 
         super().__init__(orientation='horizontal', spacing=dp(12), **kwargs)
+        self.size_hint_x = None
+        self.bind(minimum_width=lambda inst, val: setattr(inst, "width", val))
         self.username = username
         self.avatar_widget = None
         self.name_label = None

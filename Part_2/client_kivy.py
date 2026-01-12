@@ -672,29 +672,36 @@ class LoginScreen(Screen):
 class UserButton(ButtonBehavior, BoxLayout):
     def __init__(self, username, callback, **kwargs):
         # קריאה נפרדת לכל אב כדי למנוע TypeError
-        BoxLayout.__init__(self, size_hint_y=None, height=dp(40), padding=(dp(10), 0), **kwargs)
+        BoxLayout.__init__(self, size_hint_y=None, height=dp(
+            40), padding=(dp(10), 0), **kwargs)
         ButtonBehavior.__init__(self)
 
         with self.canvas.before:
             Color(*DARK_BG)
-            self.bg = RoundedRectangle(radius=[dp(8)], pos=self.pos, size=self.size)
+            self.bg = RoundedRectangle(
+                radius=[dp(8)], pos=self.pos, size=self.size)
             Color(*OTHER_COLOR)
-            self.border = Line(rounded_rectangle=(self.x, self.y, self.width, self.height, dp(8)), width=1.2)
+            self.border = Line(rounded_rectangle=(
+                self.x, self.y, self.width, self.height, dp(8)), width=1.2)
 
         self.bind(pos=self._update_graphics, size=self._update_graphics)
 
         # תוכן ממורכז אנכית
-        content = BoxLayout(orientation="horizontal", spacing=dp(8), pos_hint={'center_y': 0.5})
+        content = BoxLayout(orientation="horizontal",
+                            spacing=dp(8), pos_hint={'center_y': 0.5})
 
         avatar_file = user_avatars.get(username)
         if avatar_file:
-            avatar_path = os.path.join("assets", "avatars", avatar_file)
+            avatar_path = os.path.join(os.path.dirname(
+                os.path.abspath(__file__)), "assets", "avatars", avatar_file)
             if os.path.exists(avatar_path):
-                content.add_widget(Image(source=avatar_path, size_hint=(None, None), size=(dp(24), dp(24))))
+                content.add_widget(Image(source=avatar_path, size_hint=(
+                    None, None), size=(dp(24), dp(24)), pos_hint={'center_y': 0.5}))
 
         label = Label(text=username, color=TEXT_PRIMARY, bold=True, font_size="14sp",
                       halign="left", valign="middle", shorten=True)
-        label.bind(size=lambda inst, val: setattr(inst, "text_size", inst.size))
+        label.bind(size=lambda inst, val: setattr(
+            inst, "text_size", inst.size))
 
         content.add_widget(label)
         self.add_widget(content)
@@ -703,7 +710,8 @@ class UserButton(ButtonBehavior, BoxLayout):
     def _update_graphics(self, *args):
         self.bg.pos = self.pos
         self.bg.size = self.size
-        self.border.rounded_rectangle = (self.x, self.y, self.width, self.height, dp(8))
+        self.border.rounded_rectangle = (
+            self.x, self.y, self.width, self.height, dp(8))
 
 
 class ChatCard(ButtonBehavior, BoxLayout):
@@ -717,36 +725,43 @@ class ChatCard(ButtonBehavior, BoxLayout):
 
         with self.canvas.before:
             Color(*DARK_BG)
-            self.bg = RoundedRectangle(radius=[dp(10)], pos=self.pos, size=self.size)
+            self.bg = RoundedRectangle(
+                radius=[dp(10)], pos=self.pos, size=self.size)
 
         self.bind(pos=lambda inst, val: setattr(self.bg, "pos", inst.pos),
                   size=lambda inst, val: setattr(self.bg, "size", inst.size))
 
         # מיכל טקסט ממורכז אנכית עם center_y
-        info_box = BoxLayout(orientation="vertical", size_hint_y=1, pos_hint={'center_y': 0.5})
+        info_box = BoxLayout(orientation="vertical",
+                             size_hint_y=1, pos_hint={'center_y': 0.5})
 
         title_label = Label(text=title, color=(1, 1, 1, 1), bold=True, font_size="16sp",
                             halign="left", valign="middle")
-        title_label.bind(size=lambda inst, val: setattr(inst, "text_size", inst.size))
+        title_label.bind(size=lambda inst, val: setattr(
+            inst, "text_size", inst.size))
         info_box.add_widget(title_label)
 
         if unread > 0:
             unread_label = Label(text=f"{unread} new messages", color=OWN_COLOR,
                                  font_size="11sp", halign="left", valign="middle")
-            unread_label.bind(size=lambda inst, val: setattr(inst, "text_size", inst.size))
+            unread_label.bind(size=lambda inst, val: setattr(
+                inst, "text_size", inst.size))
             info_box.add_widget(unread_label)
 
         # אווטאר קטן ממורכז
         if chat_id != "general":
             avatar_file = user_avatars.get(chat_id)
             if avatar_file:
-                avatar_path = os.path.join("assets", "avatars", avatar_file)
+                avatar_path = os.path.join(os.path.dirname(
+                    os.path.abspath(__file__)), "assets", "avatars", avatar_file)
                 if os.path.exists(avatar_path):
                     self.add_widget(Image(source=avatar_path, size_hint=(None, None),
                                           size=(dp(30), dp(30)), pos_hint={'center_y': 0.5}))
 
         self.add_widget(info_box)
         self.bind(on_release=lambda inst: parent_with_open_chat.open_chat(chat_id))
+
+
 class MainScreen(Screen):
     username = StringProperty("")
     sock = None
@@ -798,18 +813,17 @@ class MainScreen(Screen):
 
                     # אם זה האווטר שלי – טען אותו עכשיו (זה הזמן הנכון)
                     if username == self.username:
-                        Clock.schedule_once(lambda dt: self.update_current_user_avatar())
+                        Clock.schedule_once(
+                            lambda dt: self.update_current_user_avatar())
 
                     # ריענון UI
-                    Clock.schedule_once(lambda dt: self.update_user_buttons(self.online_users))
+                    Clock.schedule_once(
+                        lambda dt: self.update_user_buttons(self.online_users))
                     Clock.schedule_once(lambda dt: self.update_chat_cards())
-
-
 
                 else:
                     Clock.schedule_once(
                         lambda dt, msg=message: self.route_message(msg))
-
 
         except:
             self.on_disconnected()
@@ -1066,7 +1080,8 @@ class MainScreen(Screen):
             self.ids.current_user_avatar.source = ""
             return
 
-        avatar_path = os.path.join("assets", "avatars", avatar_file)
+        avatar_path = os.path.join(os.path.dirname(
+            os.path.abspath(__file__)), "assets", "avatars", avatar_file)
         if os.path.exists(avatar_path):
             self.ids.current_user_avatar.source = avatar_path
             self.ids.current_user_avatar.opacity = 1
@@ -1130,7 +1145,8 @@ class ChatScreen(Screen):
         avatar_widget = None
 
         if avatar_file:
-            avatar_path = os.path.join("assets", "avatars", avatar_file)
+            avatar_path = os.path.join(os.path.dirname(
+                os.path.abspath(__file__)), "assets", "avatars", avatar_file)
             if os.path.exists(avatar_path):
                 avatar_widget = Image(
                     source=avatar_path,

@@ -54,8 +54,10 @@ def discovery_broadcast_thread():
             pass
         time.sleep(DISCOVERY_INTERVAL)
 
+
 def get_random_avatar():
-    avatars_dir = os.path.join("assets", "avatars")
+    avatars_dir = os.path.join(os.path.dirname(
+        os.path.abspath(__file__)), "assets", "avatars")
     try:
         avatars = [f for f in os.listdir(avatars_dir) if f.endswith(".png")]
         return random.choice(avatars) if avatars else None
@@ -80,10 +82,12 @@ def broadcast_user_list():
         usernames = list(clients.values())
     broadcast("USERLIST|" + ",".join(usernames))
 
+
 def broadcast_avatars():
     for username, avatar in user_avatars.items():
         if avatar:
             broadcast(f"AVATAR|{username}|{avatar}")
+
 
 def send_private(sender_socket, target_username, message):
     with clients_lock:
@@ -197,7 +201,6 @@ app = ctk.CTk()
 app.title("Lotp Server")
 app.geometry("600x420")
 app.configure(fg_color=BACKGROUND_COLOR)
-# app.iconbitmap("Lotp_Icon_BP.ico") # Old way
 icon_path = os.path.join(os.path.dirname(
     os.path.abspath(__file__)), "Lotp_Icon_BP.ico")
 app.iconbitmap(icon_path)

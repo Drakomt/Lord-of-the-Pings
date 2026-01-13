@@ -24,6 +24,7 @@ from kivy.uix.scrollview import ScrollView
 from kivy.uix.anchorlayout import AnchorLayout
 from kivy.graphics import Color, Line, RoundedRectangle
 from kivy.uix.floatlayout import FloatLayout
+from kivy.uix.gridlayout import GridLayout
 
 # ============================================
 # AETHER THEME - Blue / Purple Palette (RGBA accurate)
@@ -629,6 +630,45 @@ def server_online():
 # ============LoginsScreen==================================================
 
 
+class AvatarButton(ButtonBehavior, FloatLayout):
+    """Avatar button with image and border for the picker"""
+
+    def __init__(self, avatar_path, is_current=False, **kwargs):
+        super().__init__(**kwargs)
+        self.size_hint = (None, None)
+        self.width = dp(50)
+        self.height = dp(50)
+
+        # Add image to the float layout
+        self.img = Image(
+            source=avatar_path,
+            allow_stretch=True,
+            keep_ratio=True,
+            size_hint=(1, 1),
+            pos_hint={'center_x': 0.5, 'center_y': 0.5}
+        )
+        self.add_widget(self.img)
+
+        # Draw border
+        highlight_color = OWN_COLOR if is_current else OTHER_COLOR
+        with self.canvas.after:
+            Color(*highlight_color)
+            self.border = Line(
+                rounded_rectangle=(
+                    self.x, self.y, self.width, self.height, dp(12)),
+                width=2
+            )
+
+        self.bind(
+            pos=self._update_border,
+            size=self._update_border
+        )
+
+    def _update_border(self, *args):
+        self.border.rounded_rectangle = (
+            self.x, self.y, self.width, self.height, dp(12))
+
+
 class UserBubbleWidget(BoxLayout):
     """Custom widget to display user info as a styled bubble"""
 
@@ -646,6 +686,7 @@ class UserBubbleWidget(BoxLayout):
         self.avatar_widget = None
         self.name_label = None
         self.bubble_bg = None
+        self.on_press_callback = None
 
         self._build_widget(username, avatar_source)
 
@@ -768,6 +809,13 @@ class UserBubbleWidget(BoxLayout):
         update_width()
 
         self.add_widget(bubble_container)
+
+    def on_touch_down(self, touch):
+        if self.collide_point(*touch.pos):
+            if callable(self.on_press_callback):
+                self.on_press_callback()
+            return True
+        return super().on_touch_down(touch)
 
     def set_user(self, username, avatar_source=None):
         """Update the widget with new user info"""
@@ -1113,6 +1161,131 @@ class MainScreen(Screen):
         self.chats = {}  # chat_id -> {messages: [], unread: 0}
         self.online_users = []
 
+    def on_kv_post(self, base_widget):
+        self.ids.user_bubble_widget.on_press_callback = self.open_avatar_picker
+
+    def open_avatar_picker(self):
+        avatars_dir = os.path.join(os.path.dirname(
+            os.path.abspath(__file__)), "assets", "avatars")
+        try:
+            avatars = [f for f in os.listdir(
+                avatars_dir) if f.endswith(".png")]
+        except Exception:
+            avatars = []
+
+        if not avatars or not self.username:
+            return
+
+        current_avatar = user_avatars.get(self.username)
+
+        grid = GridLayout(
+            cols=4,
+            spacing=dp(12),
+            padding=dp(12),
+            size_hint_x=None,
+            size_hint_y=None
+        )
+        grid.bind(minimum_height=grid.setter("height"))
+        grid.bind(minimum_width=grid.setter("width"))
+
+        # Ensure each child is measured at its fixed size
+        grid.bind(children=lambda inst, val: setattr(
+            inst, 'width', inst.minimum_width))
+
+        def add_avatar_button(filename):
+            avatar_path = os.path.join(avatars_dir, filename)
+            is_current = (filename == current_avatar)
+
+            btn = AvatarButton(avatar_path, is_current=is_current)
+            btn.bind(on_release=lambda inst,
+                     name=filename: self._select_avatar(name))
+            grid.add_widget(btn)
+
+        for avatar in sorted(avatars):
+            add_avatar_button(avatar)
+
+        scroll = ScrollView(size_hint=(1, 1))
+        scroll.add_widget(grid)
+
+        # Create popup wrapper
+        popup_container = BoxLayout(
+            orientation='vertical', padding=0, spacing=0)
+        popup_container.add_widget(scroll)
+
+        popup = Popup(
+            title="Choose Your Avatar",
+            content=popup_container,
+            size_hint=(None, None),
+            pos_hint={'center_x': 0.5, 'center_y': 0.5},
+            background="",
+            background_color=(0, 0, 0, 0),
+        )
+        popup.title_size = "18sp"
+        popup.separator_color = OTHER_COLOR
+
+        with popup.canvas.before:
+            Color(*OTHER_COLOR)
+            popup.outer_border = RoundedRectangle(
+                radius=[dp(12)],
+                pos=popup.pos,
+                size=popup.size
+            )
+            Color(*BASE_BG)
+            popup.outer_bg = RoundedRectangle(
+                radius=[dp(10)],
+                pos=(popup.x + dp(2), popup.y + dp(2)),
+                size=(popup.width - dp(4), popup.height - dp(4))
+            )
+
+        def update_popup_graphics(inst, val):
+            popup.outer_border.pos = inst.pos
+            popup.outer_border.size = inst.size
+            popup.outer_bg.pos = (inst.x + dp(2), inst.y + dp(2))
+            popup.outer_bg.size = (inst.width - dp(4), inst.height - dp(4))
+
+        popup.bind(pos=update_popup_graphics, size=update_popup_graphics)
+
+        # Calculate popup size based on grid content
+        def set_popup_size(dt=None):
+            # Grid height + padding + title height + spacing
+            title_height = dp(40)
+            total_height = grid.height + dp(24) + title_height
+            total_width = grid.width + dp(24)
+
+            popup.size = (min(total_width, self.width * 0.9),
+                          min(total_height, self.height * 0.9))
+
+        # Set initial size before opening
+        Clock.schedule_once(set_popup_size, 0)
+
+        def close_on_select(_dt=None):
+            popup.dismiss()
+
+        # Replace the on_select closer after creation to use inside _select_avatar
+        self._avatar_popup_closer = close_on_select
+
+        # Open after size is calculated
+        def open_popup(dt):
+            popup.open()
+            # Disable background dimming overlay
+            popup.overlay_color = [0, 0, 0, 0]
+
+        Clock.schedule_once(open_popup, 0.1)
+
+    def _select_avatar(self, avatar_name):
+        user_avatars[self.username] = avatar_name
+        self.update_current_user_avatar()
+
+        try:
+            if self.sock:
+                self.sock.sendall(f"SET_AVATAR|{avatar_name}".encode())
+        except Exception:
+            self.on_disconnected()
+
+        closer = getattr(self, "_avatar_popup_closer", None)
+        if closer:
+            Clock.schedule_once(closer, 0)
+
     def listen_to_server(self):
         try:
             while True:
@@ -1120,6 +1293,10 @@ class MainScreen(Screen):
                 if not data:
                     break
                 message = data.decode().strip()
+                if message.startswith("AVATAR_ERROR|"):
+                    Clock.schedule_once(
+                        lambda dt: self.show_avatar_error_popup())
+                    continue
                 if message.startswith("USERLIST|"):
                     names = [n for n in message.split(
                         "|", 1)[1].split(",") if n]
@@ -1138,6 +1315,17 @@ class MainScreen(Screen):
                     Clock.schedule_once(
                         lambda dt: self.update_user_buttons(self.online_users))
                     Clock.schedule_once(lambda dt: self.update_chat_cards())
+
+                    # Refresh chat screen if currently viewing a chat with this user
+                    try:
+                        chat_screen = self.manager.get_screen("chat")
+                        if self.manager.current == "chat":
+                            # Check if the user whose avatar changed is in the current chat
+                            if chat_screen.chat_id == "general" or chat_screen.chat_id == username or self.username == username:
+                                Clock.schedule_once(
+                                    lambda dt: chat_screen.refresh_messages())
+                    except Exception:
+                        pass
 
                 else:
                     Clock.schedule_once(
@@ -1393,6 +1581,30 @@ class MainScreen(Screen):
         # Give focus to the button by simulating a keyboard event
         Clock.schedule_once(lambda dt: btn.dispatch('on_press'), 0.2)
 
+    def show_avatar_error_popup(self):
+        content = BoxLayout(orientation="vertical", spacing=15, padding=20)
+        content.add_widget(
+            Label(text="Avatar change failed", font_size=18))
+        btn = Button(text="OK", size_hint_y=None, height=45, background_normal="",
+                     background_color=DARK_BG2, color=TEXT_PRIMARY, bold=True)
+
+        with btn.canvas.after:
+            Color(*ALERT_COLOR)
+            btn.border_line = Line(rounded_rectangle=(
+                btn.x, btn.y, btn.width, btn.height, 8), width=1.5)
+        btn.bind(pos=lambda inst, val: setattr(inst.border_line, 'rounded_rectangle', (inst.x, inst.y, inst.width, inst.height, 8)),
+                 size=lambda inst, val: setattr(inst.border_line, 'rounded_rectangle', (inst.x, inst.y, inst.width, inst.height, 8)))
+
+        content.add_widget(btn)
+        popup = Popup(title="Avatar Error", content=content,
+                      size_hint=(0.6, 0.3), auto_dismiss=False)
+        popup.background = ""
+        popup.background_color = BASE_BG
+        popup.title_size = 20
+        btn.bind(on_release=lambda x: popup.dismiss())
+        popup.open()
+        Clock.schedule_once(lambda dt: btn.dispatch('on_press'), 0.2)
+
     def remove_chat(self, chat_id):
         """Remove a chat from the chats dictionary and update UI"""
         if chat_id in self.chats:
@@ -1417,6 +1629,13 @@ class MainScreen(Screen):
 
         # Update the bubble widget
         self.ids.user_bubble_widget.set_user(self.username, avatar_source)
+
+        try:
+            chat_screen = self.manager.get_screen("chat")
+            chat_screen.ids.user_bubble_widget.set_user(
+                self.username, avatar_source)
+        except Exception:
+            pass
 
 
 class ChatScreen(Screen):
@@ -1446,6 +1665,7 @@ class ChatScreen(Screen):
 
         self.ids.user_bubble_widget.set_user(
             main_screen.username, avatar_source)
+        self.ids.user_bubble_widget.on_press_callback = self.main_screen.open_avatar_picker
 
         # Load messages
         self.refresh_messages()

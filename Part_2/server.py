@@ -64,6 +64,15 @@ def get_random_avatar():
     except:
         return None
 
+
+def list_available_avatars():
+    avatars_dir = os.path.join(os.path.dirname(
+        os.path.abspath(__file__)), "assets", "avatars")
+    try:
+        return [f for f in os.listdir(avatars_dir) if f.endswith(".png")]
+    except:
+        return []
+
 # ================= SERVER LOGIC =================
 
 
@@ -87,6 +96,20 @@ def broadcast_avatars():
     for username, avatar in user_avatars.items():
         if avatar:
             broadcast(f"AVATAR|{username}|{avatar}")
+
+
+def handle_avatar_change(username, avatar_name, client_socket):
+    available = list_available_avatars()
+    if avatar_name not in available:
+        try:
+            client_socket.sendall(b"AVATAR_ERROR|invalid\n")
+        except:
+            disconnect_client(client_socket)
+        return
+
+    with clients_lock:
+        user_avatars[username] = avatar_name
+    broadcast(f"AVATAR|{username}|{avatar_name}")
 
 
 def send_private(sender_socket, target_username, message):
@@ -155,6 +178,10 @@ def handle_client(client_socket, address):
             if not data:
                 break
             message = data.decode().strip()
+            if message.startswith("SET_AVATAR|"):
+                _, avatar_name = message.split("|", 1)
+                handle_avatar_change(username, avatar_name, client_socket)
+                continue
             if message.startswith("@"):  # format: @target message
                 parts = message.split(" ", 1)
                 if len(parts) == 2 and parts[0][1:]:

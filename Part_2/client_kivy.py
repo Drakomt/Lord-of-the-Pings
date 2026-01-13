@@ -10,7 +10,7 @@ from datetime import datetime
 from kivy.app import App
 from kivy.uix.screenmanager import ScreenManager, Screen
 from kivy.lang import Builder
-from kivy.properties import StringProperty
+from kivy.properties import StringProperty, BooleanProperty, NumericProperty
 from kivy.clock import Clock
 from kivy.uix.textinput import TextInput
 from kivy.uix.boxlayout import BoxLayout
@@ -209,6 +209,27 @@ ScreenManager:
                     id: user_bubble_widget
                     size_hint_x: None
 
+                # Menu button - only visible on mobile
+                Button:
+                    text: "SB"
+                    size_hint: (None, None)
+                    size: (dp(45) if root.width < dp(700) else 0, dp(45))
+                    pos_hint: {"center_y": 0.5}
+                    opacity: 1 if root.width < dp(700) else 0
+                    disabled: root.width >= dp(700)
+                    background_normal: ""
+                    background_color: 18/255, 20/255, 38/255, 1  # DARK_BG2
+                    color: 1, 1, 1, 1
+                    bold: True
+                    font_size: "24sp"
+                    on_press: root.toggle_drawer()
+                    canvas.after:
+                        Color:
+                            rgba: 132/255, 99/255, 255/255, 1
+                        Line:
+                            rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
+                            width: 1.5
+
 
 
 
@@ -249,37 +270,61 @@ ScreenManager:
                     padding: [dp(15), dp(10)]
                     spacing: dp(12)
 
-        # Sidebar user list
+        # Sidebar user list (responsive: drawer on mobile, sidebar on desktop)
         BoxLayout:
+            id: sidebar_container
             orientation: "vertical"
-            size_hint_x: None
-            width: max(dp(150), root.width * 0.28)
-            spacing: dp(10)
+            size_hint_x: None if root.width >= dp(700) else 0
+            width: (max(dp(150), root.width * 0.28) if root.width >= dp(700) else max(dp(220), root.width * 0.7))
+            pos_hint: {'right': 1, 'top': 1} if root.width < dp(700) else {}
+            pos: (root.width - self.width if root.drawer_open else root.width, 0) if root.width < dp(700) else self.pos
+            spacing: 0
             canvas.before:
                 Color:
-                    rgba: 14/255., 16/255., 32/255., 1  # BASE_BG
+                    rgba: 26/255., 31/255., 58/255., 1  # DARK_BG
                 Rectangle:
                     pos: self.pos
                     size: self.size
             canvas.after:
                 Color:
-                    rgba: 26/255., 31/255., 58/255., 1  # DARK_BG background
+                    rgba: 132/255, 99/255, 255/255, 1  # OTHER_COLOR border
                 Line:
                     rectangle: (self.x, self.y, self.width, self.height)
-                    width: 1.5
+                    width: 2
 
-            Label:
-                text: "Users Online"
+            # Header with close button (on mobile, close button on left side)
+            BoxLayout:
+                orientation: "horizontal"
                 size_hint_y: None
-                height: dp(30)
-                color: 1, 1, 1, 1
-                bold: True
+                height: dp(40)
+                spacing: 0
                 canvas.before:
                     Color:
                         rgba: 132/255., 99/255., 255/255., 1  # OTHER_COLOR background
                     Rectangle:
                         pos: self.pos
                         size: self.size
+                
+                Button:
+                    text: "X"
+                    size_hint: (None, 1)
+                    width: dp(40) if root.width < dp(700) else 0
+                    opacity: 1 if root.width < dp(700) else 0
+                    disabled: root.width >= dp(700)
+                    background_normal: ""
+                    background_color: 0, 0, 0, 0
+                    color: 1, 1, 1, 1
+                    bold: True
+                    font_size: "24sp"
+                    on_press: root.close_drawer()
+                
+                Label:
+                    text: "Users Online"
+                    color: 1, 1, 1, 1
+                    bold: True
+                    font_size: "16sp"
+                    halign: "center"
+                    valign: "middle"
 
             ScrollView:
                 id: users_scroll
@@ -995,8 +1040,17 @@ class ChatCard(ButtonBehavior, BoxLayout):
 
 class MainScreen(Screen):
     username = StringProperty("")
+    drawer_open = BooleanProperty(False)
     sock = None
     user_initiated_disconnect = False
+
+    def toggle_drawer(self):
+        """Toggle the drawer open/closed on mobile"""
+        self.drawer_open = not self.drawer_open
+
+    def close_drawer(self):
+        """Close the drawer"""
+        self.drawer_open = False
 
     def disconnect_socket(self):
         """Properly disconnect the socket from the server"""

@@ -219,6 +219,17 @@ ScreenManager:
                     size_hint_y: None
                     height: self.texture_size[1]
 
+                Label:
+                    id: error_label
+                    text: ""
+                    color: 255/255., 88/255., 160/255., 1  # ALERT_COLOR
+                    bold: True
+                    font_size: "14sp"
+                    halign: "center"
+                    size_hint_y: None
+                    height: self.texture_size[1] if self.text else 0
+                    text_size: self.size
+
                 TextInput:
                     id: username_input
                     hint_text: "Enter Username"
@@ -930,11 +941,21 @@ class LoginScreen(Screen):
         def update_border(instance, value):
             self.border_line.rectangle = (ti.x, ti.y, ti.width, ti.height)
 
-        ti.bind(pos=update_border, size=update_border)
+        def clear_error_on_focus(instance, value):
+            if value:  # When focus is True
+                self.ids.error_label.text = ""
+
+        ti.bind(pos=update_border, size=update_border,
+                focus=clear_error_on_focus)
 
     def login(self, username):
         if not username.strip():
+            # Show error message
+            self.ids.error_label.text = "Please enter a username"
             return
+
+        # Clear any previous error when attempting login
+        self.ids.error_label.text = ""
 
         # If not using env override, verify server is actually reachable
         if not USE_ENV_OVERRIDE:

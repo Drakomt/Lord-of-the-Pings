@@ -281,7 +281,7 @@ ScreenManager:
 
                 # Menu button - only visible on mobile
                 StyledButton:
-                    text: "SB"
+                    image_source: "assets/icons/group.png"
                     size_hint: (None, None)
                     size: (dp(45) if root.width < dp(700) else 0, dp(45))
                     pos_hint: {"center_y": 0.5}
@@ -365,7 +365,7 @@ ScreenManager:
                         size: self.size
                 
                 StyledButton:
-                    text: "X"
+                    image_source: "assets/icons/close.png"
                     size_hint: (None, 1)
                     width: dp(40) if root.width < dp(700) else 0
                     opacity: 1 if root.width < dp(700) else 0

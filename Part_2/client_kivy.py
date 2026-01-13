@@ -5,6 +5,7 @@ import socket
 import threading
 import os
 import time
+import kivy.properties
 from dotenv import load_dotenv
 from datetime import datetime
 from kivy.app import App
@@ -22,6 +23,7 @@ from kivy.uix.image import Image
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.anchorlayout import AnchorLayout
 from kivy.graphics import Color, Line, RoundedRectangle
+from kivy.uix.floatlayout import FloatLayout
 
 # ============================================
 # AETHER THEME - Blue / Purple Palette (RGBA accurate)
@@ -73,13 +75,101 @@ else:
 
 DISCOVERED = False  # Flag to track if server was discovered
 
+# ====== Custom Styled Button Widget ======
+
+
+class StyledButton(ButtonBehavior, FloatLayout):
+    """Custom button widget with rounded corners, border, and dark background"""
+    text = StringProperty("")
+    image_source = StringProperty("")
+    border_color = kivy.properties.ListProperty(OTHER_COLOR)
+    background_color = kivy.properties.ListProperty(DARK_BG2)
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.content_widget = None
+
+        # Draw background and border
+        with self.canvas.before:
+            self.bg_color = Color(*self.background_color)
+            self.bg = RoundedRectangle(
+                radius=[dp(8)], pos=self.pos, size=self.size)
+            self.border_color_obj = Color(*self.border_color)
+            self.border = Line(
+                rounded_rectangle=(
+                    self.x, self.y, self.width, self.height, dp(8)),
+                width=1.5
+            )
+
+        # Bind for responsive updates
+        self.bind(pos=self._update_graphics, size=self._update_graphics)
+        self.bind(text=self._update_content, image_source=self._update_content)
+        self.bind(background_color=self._update_bg_color,
+                  border_color=self._update_border_color)
+
+        # Initial content update
+        self._update_content()
+
+    def _update_content(self, *args):
+        """Update the content (text or image) when properties change"""
+        # Remove old content
+        if self.content_widget:
+            self.remove_widget(self.content_widget)
+            self.content_widget = None
+
+        # Add new content
+        if self.image_source:
+            self.content_widget = Image(
+                source=self.image_source,
+                size_hint=(None, None),
+                size=(dp(24), dp(24)),
+                pos_hint={"center_x": 0.5, "center_y": 0.5}
+            )
+            self.add_widget(self.content_widget)
+        elif self.text:
+            self.content_widget = Label(
+                text=self.text,
+                color=TEXT_PRIMARY,
+                bold=True,
+                font_size="16sp",
+                size_hint=(1, 1),
+                pos_hint={"center_x": 0.5, "center_y": 0.5},
+                halign="center",
+                valign="middle"
+            )
+            self.content_widget.bind(
+                size=lambda inst, val: setattr(inst, 'text_size', inst.size))
+            self.add_widget(self.content_widget)
+
+    def _update_graphics(self, *args):
+        """Update background and border when size/pos changes"""
+        self.bg.pos = self.pos
+        self.bg.size = self.size
+        self.border.rounded_rectangle = (
+            self.x, self.y, self.width, self.height, dp(8))
+
+    def _update_bg_color(self, *args):
+        """Update background color"""
+        self.bg_color.rgba = self.background_color
+
+    def _update_border_color(self, *args):
+        """Update border color"""
+        self.border_color_obj.rgba = self.border_color
+
 # ====== Screen Design kivy ======
+
 
 KV = """
 ScreenManager:
     LoginScreen:
     MainScreen:
     ChatScreen:
+
+<StyledButton@FloatLayout+ButtonBehavior>:
+    text: ""
+    image_source: ""
+    border_color: 132/255., 99/255., 255/255., 1
+    background_color: 18/255., 20/255., 38/255., 1
 
 <LoginScreen>:
     name: "login"
@@ -142,23 +232,14 @@ ScreenManager:
                     padding: [dp(15), (self.height - self.line_height) / 2]
                     on_text_validate: root.login(username_input.text)
 
-            Button:
+            StyledButton:
                 text: "ENTER"
                 size_hint: (0.9, None)
                 height: dp(60)
                 pos_hint: {"center_x": 0.5}
-                background_normal: ""
-                background_color: 18/255, 20/255, 38/255, 1  # DARK_BG2
-                color: 242/255., 245/255., 255/255., 1  # TEXT_PRIMARY
-                bold: True
-                font_size: "20sp"
+                border_color: 78/255, 138/255, 255/255, 1
+                background_color: 18/255, 20/255, 38/255, 1
                 on_press: root.login(username_input.text)
-                canvas.after:
-                    Color:
-                        rgba: 78/255, 138/255, 255/255, 1  # OWN_COLOR (blue border)
-                    Line:
-                        rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
-                        width: 1.5
 
 <MainScreen>:
     name: "main"
@@ -185,22 +266,11 @@ ScreenManager:
                         pos: self.pos
                         size: self.size
 
-                Button:
+                StyledButton:
                     text: "EXIT"
                     size_hint: (None, None)
                     size: (dp(85), dp(45))
                     pos_hint: {"center_y": 0.5}
-                    background_normal: ""
-                    background_color: 18/255, 20/255, 38/255, 1  # DARK_BG2
-                    color: 1, 1, 1, 1
-                    bold: True
-                    canvas.after:
-                        Color:
-                            rgba: 132/255., 99/255., 255/255., 1  # OTHER_COLOR (purple border)
-                        Line:
-                            rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
-                            width: 1.5
-                    bold: True
                     on_press: root.Exit_to_login()
                 
                 Widget:  # spacer
@@ -210,25 +280,14 @@ ScreenManager:
                     size_hint_x: None
 
                 # Menu button - only visible on mobile
-                Button:
+                StyledButton:
                     text: "SB"
                     size_hint: (None, None)
                     size: (dp(45) if root.width < dp(700) else 0, dp(45))
                     pos_hint: {"center_y": 0.5}
                     opacity: 1 if root.width < dp(700) else 0
                     disabled: root.width >= dp(700)
-                    background_normal: ""
-                    background_color: 18/255, 20/255, 38/255, 1  # DARK_BG2
-                    color: 1, 1, 1, 1
-                    bold: True
-                    font_size: "24sp"
                     on_press: root.toggle_drawer()
-                    canvas.after:
-                        Color:
-                            rgba: 132/255, 99/255, 255/255, 1
-                        Line:
-                            rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
-                            width: 1.5
 
 
 
@@ -305,17 +364,12 @@ ScreenManager:
                         pos: self.pos
                         size: self.size
                 
-                Button:
+                StyledButton:
                     text: "X"
                     size_hint: (None, 1)
                     width: dp(40) if root.width < dp(700) else 0
                     opacity: 1 if root.width < dp(700) else 0
                     disabled: root.width >= dp(700)
-                    background_normal: ""
-                    background_color: 0, 0, 0, 0
-                    color: 1, 1, 1, 1
-                    bold: True
-                    font_size: "24sp"
                     on_press: root.close_drawer()
                 
                 Label:
@@ -356,22 +410,11 @@ ScreenManager:
                     pos: self.pos
                     size: self.size
 
-            Button:
-                text: "<--"
+            StyledButton:
                 size_hint: (None, None)
-                size: (dp(80), dp(45))
-                background_normal: ""
-                background_color: 18/255, 20/255, 38/255, 1  # DARK_BG2
-                color: 242/255., 245/255., 255/255., 1  # TEXT_PRIMARY
-                bold: True
-                font_size: "24sp"
+                size: (dp(45), dp(45))
+                image_source: "assets/icons/back_arrow.png"
                 on_press: root.go_back()
-                canvas.after:
-                    Color:
-                        rgba: 132/255., 99/255., 255/255., 1  # OTHER_COLOR (purple border)
-                    Line:
-                        rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
-                        width: 1.5
 
             Label:
                 id: chat_title
@@ -433,21 +476,11 @@ ScreenManager:
                 padding: [dp(15), (self.height - self.line_height) / 2]
                 on_text_validate: root.send_message(message_input.text)
 
-            Button:
+            StyledButton:
                 text: "SEND"
                 size_hint_x: None
                 width: dp(110)
-                background_normal: ""
-                background_color: 18/255, 20/255, 38/255, 1  # DARK_BG2  
-                color: 242/255., 245/255., 255/255., 1  # TEXT_PRIMARY
-                bold: True
                 on_press: root.send_message(message_input.text)
-                canvas.after:
-                    Color:
-                        rgba: 132/255., 99/255., 255/255., 1  # OTHER_COLOR (purple border)
-                    Line:
-                        rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
-                        width: 1.5
 """
 
 # ============ SERVER DISCOVERY FUNCTIONS =============

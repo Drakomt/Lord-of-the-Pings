@@ -1498,15 +1498,16 @@ class MainScreen(Screen):
                 if self.manager.current == "game":
                     # Show popup and redirect to chat
                     def show_left_popup(dt):
-                        content = BoxLayout(orientation="vertical", spacing=15, padding=20)
+                        content = BoxLayout(
+                            orientation="vertical", spacing=15, padding=20)
                         content.add_widget(
                             Label(text=f"{opponent_name} left the game", font_size=18))
                         btn = Button(text="OK", size_hint_y=None, height=45)
                         content.add_widget(btn)
-                        
-                        popup = Popup(title="Game Ended", content=content, 
-                                    size_hint=(0.7, 0.3), auto_dismiss=False)
-                        
+
+                        popup = Popup(title="Game Ended", content=content,
+                                      size_hint=(0.7, 0.3), auto_dismiss=False)
+
                         def on_close(instance):
                             popup.dismiss()
                             # Navigate to chat screen
@@ -1520,15 +1521,15 @@ class MainScreen(Screen):
                                     self.manager.current = "chat"
                             except:
                                 self.manager.current = "main"
-                        
+
                         btn.bind(on_press=on_close)
                         popup.open()
-                    
+
                     Clock.schedule_once(show_left_popup, 0.1)
             except Exception:
                 pass
             return
-        
+
         # Check for game end messages
         if body.startswith("***GAME_END***"):
             # Opponent's game ended, update our score
@@ -1540,7 +1541,7 @@ class MainScreen(Screen):
             except Exception:
                 pass
             return
-        
+
         # Check for game reset messages
         if body.startswith("***GAME_RESET***"):
             # Opponent started a new game
@@ -1551,7 +1552,7 @@ class MainScreen(Screen):
             except Exception:
                 pass
             return
-        
+
         # Check for game acceptance messages
         if body.startswith("***GAME_ACCEPTED***"):
             # Extract opponent name from message
@@ -1563,18 +1564,19 @@ class MainScreen(Screen):
                     chat_screen = self.manager.get_screen("chat")
                 except:
                     chat_screen = None
-                
+
                 game_screen.setup_game(
                     player_name=self.username,
                     opponent_name=opponent_name,
                     chat_screen=chat_screen,
                     initial_player="X"  # Inviter is X
                 )
-                Clock.schedule_once(lambda dt: setattr(self.manager, 'current', 'game'), 0.1)
+                Clock.schedule_once(lambda dt: setattr(
+                    self.manager, 'current', 'game'), 0.1)
             except Exception:
                 pass
             return
-        
+
         # Check for game move messages
         if body.startswith("***GAME_MOVE***"):
             # Extract game state and process it
@@ -1586,7 +1588,8 @@ class MainScreen(Screen):
                     if len(parts) >= 4:
                         board_str = parts[2]
                         current_player = parts[3]
-                        game_screen.receive_opponent_move(board_str, current_player)
+                        game_screen.receive_opponent_move(
+                            board_str, current_player)
                 return
             except Exception:
                 pass
@@ -1924,7 +1927,8 @@ class ChatScreen(Screen):
             opponent_name = text.replace("***GAME_INVITE***", "")
             if is_own:
                 # Show confirmation for the sender
-                self.add_system_message(f"You invited {opponent_name} to play Tic-Tac-Toe!")
+                self.add_system_message(
+                    f"You invited {opponent_name} to play Tic-Tac-Toe!")
                 self.has_pending_invite = True  # Mark that invite is pending
             else:
                 # Show invite button for the receiver
@@ -2164,8 +2168,9 @@ class ChatScreen(Screen):
 
     def add_game_invite_button(self, opponent_name, inviter_name):
         """Add a clickable game invite button to the chat"""
-        container = BoxLayout(size_hint_y=None, height=dp(60), padding=dp(10), spacing=dp(10))
-        
+        container = BoxLayout(size_hint_y=None, height=dp(
+            60), padding=dp(10), spacing=dp(10))
+
         # Invite message
         msg_label = Label(
             text=f"{inviter_name} invited you to Tic-Tac-Toe!",
@@ -2174,36 +2179,37 @@ class ChatScreen(Screen):
             font_size='14sp'
         )
         msg_label.bind(texture_size=msg_label.setter('size'))
-        
+
         # Accept button
         accept_btn = StyledButton(
             text="PLAY",
             size_hint_x=None,
             width=dp(70)
         )
-        
+
         def on_accept_press(instance):
             # Disable button after first click
             accept_btn.disabled = True
             accept_btn.opacity = 0.5
             self.has_pending_invite = False  # Clear pending invite
             self.accept_game_invite(opponent_name)
-        
+
         accept_btn.bind(on_press=on_accept_press)
-        
+
         container.add_widget(msg_label)
         container.add_widget(accept_btn)
-        
+
         # Style the container
         with container.canvas.before:
             Color(*OTHER_COLOR)
-            container.bg = RoundedRectangle(radius=[dp(12)], pos=container.pos, size=container.size)
-        
+            container.bg = RoundedRectangle(
+                radius=[dp(12)], pos=container.pos, size=container.size)
+
         container.bind(
             pos=lambda inst, v: setattr(inst.bg, "pos", inst.pos),
             size=lambda inst, v: setattr(inst.bg, "size", inst.size)
         )
-        
+
         self.ids.chat_box.add_widget(container)
         Clock.schedule_once(lambda dt: self.scroll_to_bottom(), 0.05)
 
@@ -2218,11 +2224,11 @@ class ChatScreen(Screen):
         """Send a game invite to the user in this private chat"""
         if self.chat_id == "general":
             return
-        
+
         # Check if there's already a pending invite
         if self.has_pending_invite:
             return  # Don't send another invite
-        
+
         # Send special game invite message
         opponent = self.chat_id
         invite_msg = f"***GAME_INVITE***{opponent}"
@@ -2233,10 +2239,10 @@ class ChatScreen(Screen):
         # Send acceptance message so opponent redirects too
         acceptance_msg = f"***GAME_ACCEPTED***{self.main_screen.username}"
         self.send_message(acceptance_msg)
-        
+
         # Clear pending invite flag
         self.has_pending_invite = False
-        
+
         # Setup game (this player will be O)
         game_screen = self.manager.get_screen("game")
         game_screen.setup_game(
@@ -2252,18 +2258,18 @@ class ChatScreen(Screen):
 
 class TicTacToeGame:
     """Tic-Tac-Toe game logic"""
-    
+
     def __init__(self):
         self.board = [None] * 9  # 9 cells: 0-8
         self.current_player = "X"  # X always goes first
         self.game_over = False
         self.winner = None
         self.move_count = 0
-    
+
     def is_valid_move(self, cell):
         """Check if a move is valid"""
         return 0 <= cell < 9 and self.board[cell] is None
-    
+
     def make_move(self, cell, player):
         """Make a move. Returns True if successful"""
         if not self.is_valid_move(cell):
@@ -2271,7 +2277,7 @@ class TicTacToeGame:
         self.board[cell] = player
         self.move_count += 1
         return True
-    
+
     def get_winner(self):
         """Check if there's a winner. Returns 'X', 'O', 'DRAW', or None"""
         # Winning combinations
@@ -2280,21 +2286,21 @@ class TicTacToeGame:
             [0, 3, 6], [1, 4, 7], [2, 5, 8],  # Columns
             [0, 4, 8], [2, 4, 6]               # Diagonals
         ]
-        
+
         # Check for winning combinations first
         for combo in winning_combos:
             a, b, c = combo
             if self.board[a] is not None and self.board[a] == self.board[b] == self.board[c]:
                 return self.board[a]
-        
+
         # Check for draw (all cells filled, no winner)
         if None not in self.board:
             return "DRAW"
-        
+
         return None
-        
+
         return None
-    
+
     def reset(self):
         """Reset the game"""
         self.board = [None] * 9
@@ -2306,7 +2312,7 @@ class TicTacToeGame:
 
 class GameScreen(Screen):
     """Tic-Tac-Toe game screen"""
-    
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.game = TicTacToeGame()
@@ -2318,11 +2324,11 @@ class GameScreen(Screen):
         self.opponent_score = 0
         self.chat_screen = None
         self.cell_buttons = []
-    
+
     def on_enter(self):
         """Called when screen is displayed"""
         self.setup_board()
-    
+
     def setup_game(self, player_name, opponent_name, chat_screen, initial_player="X"):
         """Setup the game with player info"""
         self.player_name = player_name
@@ -2331,13 +2337,13 @@ class GameScreen(Screen):
         self.player_symbol = initial_player
         self.opponent_symbol = "O" if initial_player == "X" else "X"
         self.game.reset()
-    
+
     def setup_board(self):
         """Create the game board with buttons"""
         board_widget = self.ids.game_board
         board_widget.clear_widgets()
         self.cell_buttons = []
-        
+
         for i in range(9):
             btn = StyledButton(
                 text="",
@@ -2348,25 +2354,25 @@ class GameScreen(Screen):
             btn.bind(on_press=self.on_cell_press)
             board_widget.add_widget(btn)
             self.cell_buttons.append(btn)
-        
+
         self.update_status()
         self.update_score()
-    
+
     def on_cell_press(self, button):
         """Handle cell press"""
         if self.game.game_over:
             return
-        
+
         cell = button.cell_index
-        
+
         # Check if it's the current player's turn
         if self.game.current_player != self.player_symbol:
             return
-        
+
         # Make the move
         if self.game.make_move(cell, self.player_symbol):
             self.update_board()
-            
+
             # Check for winner
             result = self.game.get_winner()
             if result:
@@ -2375,30 +2381,30 @@ class GameScreen(Screen):
                 self.send_game_move(cell)
                 self.handle_game_end(result)
                 return
-            
+
             # Switch player
             self.game.current_player = self.opponent_symbol
             self.update_status()
-            
+
             # Send move to opponent via chat message
             self.send_game_move(cell)
-    
+
     def send_game_move(self, cell):
         """Send move to opponent through chat"""
         if not self.chat_screen:
             return
-        
+
         move_msg = f"***GAME_MOVE***{self.game.board}***{self.game.current_player}"
         # Send without displaying in chat
         outbound = move_msg
         if self.chat_screen.chat_id != "general":
             outbound = f"@{self.chat_screen.chat_id} {move_msg}"
-        
+
         try:
             self.chat_screen.main_screen.sock.sendall(outbound.encode())
         except:
             pass
-    
+
     def handle_game_end(self, result):
         """Handle game end"""
         if result == "DRAW":
@@ -2412,9 +2418,9 @@ class GameScreen(Screen):
             self.ids.game_status_label.text = "You Lost!"
             self.opponent_score += 1
             status_msg = "LOST"
-        
+
         self.update_score()
-        
+
         # Send game end message so opponent knows game ended and can show their popup
         end_msg = f"***GAME_END***{result}"
         if self.chat_screen:
@@ -2425,10 +2431,10 @@ class GameScreen(Screen):
                 self.chat_screen.main_screen.sock.sendall(outbound.encode())
             except:
                 pass
-        
+
         # Show result popup
         self.show_game_end_popup(status_msg)
-    
+
     def update_board(self):
         """Update board display"""
         for i, btn in enumerate(self.cell_buttons):
@@ -2443,7 +2449,7 @@ class GameScreen(Screen):
                     # Opponent's cells: purple
                     btn.background_color = OTHER_COLOR
                     btn.border_color = OTHER_COLOR
-    
+
     def update_status(self):
         """Update game status label"""
         if not self.game.game_over:
@@ -2453,43 +2459,44 @@ class GameScreen(Screen):
             else:
                 self.ids.game_status_label.text = f"{self.opponent_name}'s Turn"
                 self.ids.game_status_label.color = OTHER_COLOR
-    
+
     def update_score(self):
         """Update score display"""
         self.ids.score_label.text = f"You: {self.player_score} | {self.opponent_name}: {self.opponent_score}"
-    
+
     def reset_game(self):
         """Start a new game"""
         self.game.reset()
         self.setup_board()
         # Send reset message to opponent
         self.send_game_reset()
-    
+
     def send_game_reset(self):
         """Send game reset message to opponent"""
         if not self.chat_screen:
             return
-        
+
         reset_msg = f"***GAME_RESET***{self.player_name}"
         # Send without displaying in chat
         outbound = reset_msg
         if self.chat_screen.chat_id != "general":
             outbound = f"@{self.chat_screen.chat_id} {reset_msg}"
-        
+
         try:
             self.chat_screen.main_screen.sock.sendall(outbound.encode())
         except:
             pass
-    
+
     def receive_opponent_reset(self):
         """Receive and process opponent's game reset"""
         if self.game.game_over:
             # Show notification
-            self.chat_screen.add_system_message(f"{self.opponent_name} started a new game!")
-        
+            self.chat_screen.add_system_message(
+                f"{self.opponent_name} started a new game!")
+
         self.game.reset()
         self.setup_board()
-    
+
     def show_game_end_popup(self, result):
         """Show popup with game result"""
         if result == "WON":
@@ -2501,21 +2508,22 @@ class GameScreen(Screen):
         else:  # DRAW
             popup_title = "🤝 Draw!"
             popup_msg = "Great match! It's a draw!"
-        
+
         content = BoxLayout(orientation="vertical", spacing=15, padding=20)
-        content.add_widget(Label(text=popup_msg, font_size=18, size_hint_y=0.7))
-        
+        content.add_widget(
+            Label(text=popup_msg, font_size=18, size_hint_y=0.7))
+
         close_btn = Button(text="OK", size_hint_y=0.3)
         content.add_widget(close_btn)
-        
+
         popup = Popup(title=popup_title, content=content, size_hint=(0.8, 0.4))
         close_btn.bind(on_press=popup.dismiss)
         popup.open()
-    
+
     def receive_opponent_game_end(self, winner_symbol):
         """Receive opponent's game end result to update score and show popup"""
         self.game.game_over = True
-        
+
         if winner_symbol == "DRAW":
             # Draw - no score change
             self.ids.game_status_label.text = "Draw!"
@@ -2534,11 +2542,11 @@ class GameScreen(Screen):
             # Fallback to draw if unexpected value
             self.ids.game_status_label.text = "Draw!"
             status_msg = "DRAW"
-        
+
         self.update_score()
         # Show popup for this player too
         self.show_game_end_popup(status_msg)
-    
+
     def exit_game(self):
         """Exit the game and go back to chat"""
         # Send message that user is leaving
@@ -2551,27 +2559,29 @@ class GameScreen(Screen):
                 self.chat_screen.main_screen.sock.sendall(outbound.encode())
             except:
                 pass
-        
+
         self.manager.current = "chat"
-    
+
     def receive_opponent_move(self, board_str, current_player):
         """Receive and process opponent's move"""
         if self.game.game_over:
             return
-        
+
         try:
             # Parse the board string: "[None, None, ..., 'X', ...]"
             board_str = board_str.replace("None", "None")
-            board_list = eval(board_str)  # Safe here since it's from our own protocol
-            
+            # Safe here since it's from our own protocol
+            board_list = eval(board_str)
+
             # Update game board
             self.game.board = board_list
-            self.game.move_count = sum(1 for cell in board_list if cell is not None)
+            self.game.move_count = sum(
+                1 for cell in board_list if cell is not None)
             self.game.current_player = current_player
-            
+
             # Update UI
             self.update_board()
-            
+
             # Don't check for winner here - wait for explicit GAME_END message
             # This avoids double-processing game end (once here, once from GAME_END message)
             self.update_status()

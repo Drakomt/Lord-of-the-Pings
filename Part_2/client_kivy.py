@@ -151,30 +151,46 @@ class StyledButton(ButtonBehavior, FloatLayout):
             is_vertical = self.text_orientation == "vertical"
             container = BoxLayout(
                 orientation="vertical" if is_vertical else "horizontal",
-                size_hint=(1, 1),
+                size_hint=(None, None),
                 spacing=dp(4),
-                padding=(dp(4), dp(4))
+                padding=(dp(4), dp(4)),
+                pos_hint={"center_x": 0.5, "center_y": 0.5}
             )
-
+            container.size = self.size
+            self.bind(size=lambda inst, val: setattr(container, "size", val))
+            # Icon first
             if self.image_source:
                 img = Image(
                     source=self.image_source,
-                    size_hint=(None, None) if is_vertical else (None, 1),
-                    size=(dp(24), dp(24))
+                    pos_hint={"center_x": 0.5, "center_y": 0.5},
+                    size_hint=(None, None),
+                    size=(dp(26), dp(26))
                 )
                 container.add_widget(img)
 
+            # Text second
             if self.text:
                 lbl = Label(
                     text=self.text,
                     color=TEXT_PRIMARY,
-                    font_size="11sp",
-                    halign="center",
+                    font_size="14sp",
+                    halign="left" if not is_vertical else "center",
                     valign="middle",
-                    size_hint=(1, 1)
+                    size_hint=(1, 1),
+                    text_size=(None, None)
                 )
-                lbl.bind(size=lambda inst, val: setattr(
-                    inst, 'text_size', inst.size))
+
+                if not is_vertical:
+                    def update_label_width(*args):
+                        icon_width = dp(24) + container.spacing + \
+                            container.padding[0] * 2
+                        lbl.width = max(container.width - icon_width, dp(10))
+                        lbl.text_size = (lbl.width, None)
+
+                    container.bind(size=update_label_width)
+                else:
+                    lbl.bind(size=lambda inst, val: setattr(
+                        lbl, "text_size", lbl.size))
                 container.add_widget(lbl)
 
             self.content_widget = container
@@ -496,7 +512,9 @@ KV = """
             StyledButton:
                 id: invite_container
                 text: root.invite_stats_text
-                display_mode: "text"
+                display_mode: "icon_text"
+                text_orientation: "vertical"
+                image_source: "assets/icons/tic_tac_toe.png"
                 size_hint: (None, None)
                 size: (dp(50), dp(50))
                 opacity: 0  # Hidden by default (not private chat)
@@ -1618,8 +1636,28 @@ class MainScreen(Screen):
             try:
                 winner_symbol = body.replace("***GAME_END***", "")
                 game_screen = self.manager.get_screen("game")
-                if self.manager.current == "game":
-                    game_screen.receive_opponent_game_end(winner_symbol)
+                show_popup = self.manager.current == "game"
+                game_screen.receive_opponent_game_end(
+                    winner_symbol, show_popup=show_popup)
+
+                # After updating game screen, refresh the chat invite stats if in chat
+                # Get opponent name from game_screen if available, otherwise from current chat
+                opponent_name = game_screen.opponent_name if game_screen.opponent_name else None
+                if not opponent_name and self.manager.current == "chat":
+                    try:
+                        chat_screen = self.manager.get_screen("chat")
+                        if chat_screen.chat_id != "general":
+                            opponent_name = chat_screen.chat_id
+                    except Exception:
+                        pass
+
+                if self.manager.current == "chat" and opponent_name:
+                    try:
+                        chat_screen = self.manager.get_screen("chat")
+                        if chat_screen.chat_id == opponent_name:
+                            chat_screen.update_invite_stats()
+                    except Exception:
+                        pass
             except Exception:
                 pass
             return
@@ -1657,6 +1695,8 @@ class MainScreen(Screen):
                     player_name=self.username,
                     opponent_name=opponent_name,
                     chat_screen=chat_screen,
+                    # Pass ChatScreen as score holder
+                    score_holder=chat_screen if chat_screen else None,
                     initial_player="X"  # Inviter is X
                 )
                 Clock.schedule_once(lambda dt: setattr(
@@ -1961,11 +2001,23 @@ class ChatScreen(Screen):
         self.chat_id = None
         self.main_screen = None
         self.has_pending_invite = False  # Track if there's an active invite
+        self.wins = 0  # This chat's game wins
+        self.losses = 0  # This chat's game losses
 
     def load_chat(self, chat_id, main_screen):
         self.chat_id = chat_id
         self.main_screen = main_screen
         self.has_pending_invite = False  # Reset when loading chat
+
+        # Load scores from game_records
+        if chat_id != "general" and main_screen:
+            record = main_screen.game_records.get(
+                chat_id, {"wins": 0, "losses": 0})
+            self.wins = record.get("wins", 0)
+            self.losses = record.get("losses", 0)
+        else:
+            self.wins = 0
+            self.losses = 0
 
         # Set title
         if chat_id == "general":
@@ -2021,11 +2073,7 @@ class ChatScreen(Screen):
             self.invite_stats_text = ""
             return
 
-        record = self.main_screen.game_records.get(
-            self.chat_id, {"wins": 0, "losses": 0})
-        wins = record.get("wins", 0)
-        losses = record.get("losses", 0)
-        self.invite_stats_text = f"🎮\n{wins}/{losses}"
+        self.invite_stats_text = f"{self.wins}/{self.losses}"
 
     def add_message_bubble(self, username, text, is_own):
         # Check if this is a game invite
@@ -2358,6 +2406,7 @@ class ChatScreen(Screen):
             player_name=self.main_screen.username,
             opponent_name=opponent,
             chat_screen=self,
+            score_holder=self,  # Pass ChatScreen's score container
             initial_player="O"  # Accepting player is O
         )
         self.manager.current = "game"
@@ -2432,19 +2481,30 @@ class GameScreen(Screen):
         self.player_score = 0
         self.opponent_score = 0
         self.chat_screen = None
+        self.main_screen = None  # Store main_screen reference for score updates
+        self.score_holder = None  # Reference to ChatScreen for direct score updates
         self.cell_buttons = []
 
     def on_enter(self):
         """Called when screen is displayed"""
         self.setup_board()
 
-    def setup_game(self, player_name, opponent_name, chat_screen, initial_player="X"):
+    def setup_game(self, player_name, opponent_name, chat_screen, score_holder=None, initial_player="X"):
         """Setup the game with player info"""
         self.player_name = player_name
         self.opponent_name = opponent_name
         self.chat_screen = chat_screen
+        self.score_holder = score_holder  # Store reference to ChatScreen's score container
+        if chat_screen:
+            self.main_screen = chat_screen.main_screen
         self.player_symbol = initial_player
         self.opponent_symbol = "O" if initial_player == "X" else "X"
+
+        # Load initial scores from score_holder if available
+        if self.score_holder:
+            self.player_score = self.score_holder.wins
+            self.opponent_score = self.score_holder.losses
+
         self.game.reset()
 
         if self.chat_screen:
@@ -2584,21 +2644,25 @@ class GameScreen(Screen):
         self.ids.score_label.text = f"You: {self.player_score} | {self.opponent_name}: {self.opponent_score}"
 
     def record_result(self, status_msg):
-        """Persist win/loss stats and refresh chat indicator"""
-        if not self.chat_screen or not self.chat_screen.main_screen:
-            return
+        """Persist win/loss stats by updating score_holder directly"""
+        # Update the score_holder (ChatScreen) directly so both players see the update
+        if self.score_holder:
+            self.score_holder.wins = self.player_score
+            self.score_holder.losses = self.opponent_score
+            self.score_holder.update_invite_stats()
 
-        record = self.chat_screen.main_screen.game_records.setdefault(
-            self.opponent_name, {"wins": 0, "losses": 0})
-        # Use actual tracked scores to avoid double-counting
-        record["wins"] = self.player_score
-        record["losses"] = self.opponent_score
+        # Also update game_records for persistence
+        main_screen = None
+        if self.chat_screen and self.chat_screen.main_screen:
+            main_screen = self.chat_screen.main_screen
+        elif self.main_screen:
+            main_screen = self.main_screen
 
-        try:
-            if self.chat_screen.chat_id == self.opponent_name:
-                self.chat_screen.update_invite_stats()
-        except Exception:
-            pass
+        if main_screen:
+            record = main_screen.game_records.setdefault(
+                self.opponent_name, {"wins": 0, "losses": 0})
+            record["wins"] = self.player_score
+            record["losses"] = self.opponent_score
 
     def reset_game(self):
         """Start a new game"""
@@ -2656,7 +2720,7 @@ class GameScreen(Screen):
         close_btn.bind(on_press=popup.dismiss)
         popup.open()
 
-    def receive_opponent_game_end(self, winner_symbol):
+    def receive_opponent_game_end(self, winner_symbol, show_popup=True):
         """Receive opponent's game end result to update score and show popup"""
         self.game.game_over = True
 
@@ -2681,8 +2745,9 @@ class GameScreen(Screen):
 
         self.update_score()
         self.record_result(status_msg)
-        # Show popup for this player too
-        self.show_game_end_popup(status_msg)
+        # Show popup for this player too when applicable
+        if show_popup:
+            self.show_game_end_popup(status_msg)
 
     def exit_game(self):
         """Exit the game and go back to chat"""

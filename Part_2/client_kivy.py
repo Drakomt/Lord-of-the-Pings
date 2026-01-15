@@ -605,20 +605,9 @@ KV = """
                 halign: "left"
                 size_hint_x: 1
 
-            Label:
-                id: game_status_label
-                text: "Your Turn"
-                color: 78/255., 138/255., 255/255., 1
-                font_size: "14sp"
-                bold: True
-                size_hint_x: None
-                width: dp(100)
 
-        # Game board
-        BoxLayout:
-            orientation: "vertical"
-            padding: dp(20)
-            spacing: dp(10)
+        # ================= GAME BODY =================
+        RelativeLayout:
             canvas.before:
                 Color:
                     rgba: 14/255., 16/255., 32/255., 1
@@ -626,40 +615,86 @@ KV = """
                     pos: self.pos
                     size: self.size
 
-            GridLayout:
-                id: game_board
-                cols: 3
-                rows: 3
-                spacing: dp(5)
-                size_hint: (0.8, 0.8)
-                pos_hint: {"center_x": 0.5, "center_y": 0.5}
+            # -------- Vertical content stack --------
+            BoxLayout:
+                orientation: "vertical"
+                size_hint: None, None
+                width: min(dp(320), root.width)
+                height: self.minimum_height
+                spacing: dp(18)
+                pos_hint: {"center_x": 0.5, "top": 0.95}
 
-        # Score and controls
-        BoxLayout:
-            size_hint_y: None
-            height: dp(60)
-            padding: [dp(15), dp(10)]
-            spacing: dp(10)
-            canvas.before:
-                Color:
-                    rgba: 26/255., 31/255., 58/255., 1
-                Rectangle:
-                    pos: self.pos
-                    size: self.size
+                # -------- Status --------
+                Label:
+                    id: game_status_label
+                    text: "Your Turn"
+                    color: 78/255., 138/255., 1, 1
+                    font_size: "22sp"
+                    bold: True
+                    size_hint_y: None
+                    height: self.texture_size[1]
+                    halign: "center"
+                    valign: "middle"
+                    text_size: self.width, None
 
-            Label:
-                id: score_label
-                text: "You: 0 | Opponent: 0"
-                color: 1, 1, 1, 1
-                font_size: "14sp"
-                bold: True
-                size_hint_x: 1
+                # -------- Score --------
+                Label:
+                    id: score_label
+                    text: "You: 0 | Opponent: 0"
+                    color: 242/255., 245/255., 1, 1
+                    font_size: "16sp"
+                    size_hint_y: None
+                    height: self.texture_size[1]
+                    halign: "center"
+                    valign: "middle"
+                    text_size: self.width, None
 
-            StyledButton:
-                text: "NEW GAME"
-                size_hint_x: None
-                width: dp(120)
-                on_press: root.reset_game()
+                # -------- Separator --------
+                Widget:
+                    size_hint_y: None
+                    height: dp(12)
+                    canvas.before:
+                        Color:
+                            rgba: 132/255., 99/255., 1, 1
+                        Rectangle:
+                            size: self.width * 0.8, dp(1)
+                            pos: self.center_x - self.width * 0.4, self.center_y
+
+                # -------- Game board (VISUALLY CENTERED) --------
+                AnchorLayout:
+                    size_hint_y: None
+                    height: root.grid_size
+                    anchor_x: "center"
+                    anchor_y: "center"
+
+                    GridLayout:
+                        id: game_board
+                        cols: 3
+                        rows: 3
+
+                        # INTERNAL spacing
+                        spacing: dp(6)
+
+                        # CRITICAL FIX: symmetric outer padding
+                        padding: dp(3), dp(3)
+
+                        size_hint: None, None
+                        size: root.grid_size, root.grid_size
+
+                # New game button (hidden initially)
+                AnchorLayout:
+                    size_hint_y: None
+                    height: dp(50)
+                    anchor_x: "center"
+                    anchor_y: "center"
+                    StyledButton:
+                        id: new_game_btn
+                        text: "NEW GAME"
+                        size_hint: (None, None)
+                        size: (dp(180), dp(50))
+                        opacity: 0
+                        disabled: True
+                        on_press: root.reset_game()
 
 ScreenManager:
     LoginScreen:
@@ -2470,6 +2505,8 @@ class TicTacToeGame:
 
 class GameScreen(Screen):
     """Tic-Tac-Toe game screen"""
+    cell_size = NumericProperty(dp(80))
+    grid_size = NumericProperty(dp(258))  # (3 * 80) + (2 * 6) + 6 = 258
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -2526,7 +2563,7 @@ class GameScreen(Screen):
             btn = StyledButton(
                 text="",
                 size_hint=(None, None),
-                size=(dp(80), dp(80))
+                size=(self.cell_size, self.cell_size)
             )
             btn.cell_index = i
             btn.bind(on_press=self.on_cell_press)
@@ -2586,7 +2623,7 @@ class GameScreen(Screen):
     def handle_game_end(self, result):
         """Handle game end"""
         if result == "DRAW":
-            self.ids.game_status_label.text = "Draw!"
+            self.ids.game_status_label.text = "It's a Tie!"
             status_msg = "DRAW"
         elif result == self.player_symbol:
             self.ids.game_status_label.text = "You Won!"
@@ -2599,6 +2636,10 @@ class GameScreen(Screen):
 
         self.update_score()
         self.record_result(status_msg)
+
+        # Show new game button
+        self.ids.new_game_btn.opacity = 1
+        self.ids.new_game_btn.disabled = False
 
         # Send game end message so opponent knows game ended and can show their popup
         end_msg = f"***GAME_END***{result}"
@@ -2668,6 +2709,11 @@ class GameScreen(Screen):
         """Start a new game"""
         self.game.reset()
         self.setup_board()
+
+        # Hide new game button
+        self.ids.new_game_btn.opacity = 0
+        self.ids.new_game_btn.disabled = True
+
         # Send reset message to opponent
         self.send_game_reset()
 
@@ -2696,6 +2742,10 @@ class GameScreen(Screen):
 
         self.game.reset()
         self.setup_board()
+
+        # Hide new game button
+        self.ids.new_game_btn.opacity = 0
+        self.ids.new_game_btn.disabled = True
 
     def show_game_end_popup(self, result):
         """Show popup with game result"""
@@ -2726,7 +2776,7 @@ class GameScreen(Screen):
 
         if winner_symbol == "DRAW":
             # Draw - no score change
-            self.ids.game_status_label.text = "Draw!"
+            self.ids.game_status_label.text = "It's a Tie!"
             status_msg = "DRAW"
         elif winner_symbol == self.opponent_symbol:
             # Opponent won, I lost
@@ -2740,11 +2790,16 @@ class GameScreen(Screen):
             status_msg = "WON"
         else:
             # Fallback to draw if unexpected value
-            self.ids.game_status_label.text = "Draw!"
+            self.ids.game_status_label.text = "It's a Tie!"
             status_msg = "DRAW"
 
         self.update_score()
         self.record_result(status_msg)
+
+        # Show new game button
+        self.ids.new_game_btn.opacity = 1
+        self.ids.new_game_btn.disabled = False
+
         # Show popup for this player too when applicable
         if show_popup:
             self.show_game_end_popup(status_msg)

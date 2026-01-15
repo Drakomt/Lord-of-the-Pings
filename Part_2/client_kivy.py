@@ -2351,6 +2351,53 @@ class ChatScreen(Screen):
         Clock.schedule_once(lambda dt: setattr(
             self.ids.message_input, 'focus', True), 0.1)
 
+    def add_game_invite_button(self, opponent_name, inviter_name):
+        """Add a clickable game invite button to the chat"""
+        container = BoxLayout(size_hint_y=None, height=dp(
+            60), padding=dp(10), spacing=dp(10))
+
+        # Invite message
+        msg_label = Label(
+            text=f"{inviter_name} invited you to Tic-Tac-Toe!",
+            color=TEXT_PRIMARY,
+            size_hint_x=1,
+            font_size='14sp'
+        )
+        msg_label.bind(texture_size=msg_label.setter('size'))
+
+        # Accept button
+        accept_btn = StyledButton(
+            text="PLAY",
+            size_hint_x=None,
+            width=dp(70)
+        )
+
+        def on_accept_press(instance):
+            # Disable button after first click
+            accept_btn.disabled = True
+            accept_btn.opacity = 0.5
+            self.has_pending_invite = False  # Clear pending invite
+            self.accept_game_invite(opponent_name)
+
+        accept_btn.bind(on_press=on_accept_press)
+
+        container.add_widget(msg_label)
+        container.add_widget(accept_btn)
+
+        # Style the container
+        with container.canvas.before:
+            Color(*OTHER_COLOR)
+            container.bg = RoundedRectangle(
+                radius=[dp(12)], pos=container.pos, size=container.size)
+
+        container.bind(
+            pos=lambda inst, v: setattr(inst.bg, "pos", inst.pos),
+            size=lambda inst, v: setattr(inst.bg, "size", inst.size)
+        )
+
+        self.ids.chat_box.add_widget(container)
+        Clock.schedule_once(lambda dt: self.scroll_to_bottom(), 0.05)
+
     def scroll_to_bottom(self):
         if self.ids.chat_box.height > self.ids.chat_scroll.height:
             self.ids.chat_scroll.scroll_y = 0

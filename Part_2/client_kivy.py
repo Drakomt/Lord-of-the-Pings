@@ -1806,11 +1806,15 @@ class MainScreen(Screen):
                 # Show popup notification
                 self.show_user_disconnected_popup(user)
 
-                # Check if user is currently viewing this chat
+                # Check if user is currently viewing this chat or game
                 try:
                     chat_screen = self.manager.get_screen("chat")
                     if self.manager.current == "chat" and chat_screen.chat_id == user:
                         # Navigate back to main screen
+                        Clock.schedule_once(lambda dt: setattr(
+                            self.manager, 'current', 'main'), 0.5)
+                    elif self.manager.current == "game":
+                        # If on game screen with this user, go back to main
                         Clock.schedule_once(lambda dt: setattr(
                             self.manager, 'current', 'main'), 0.5)
                 except Exception:

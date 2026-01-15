@@ -660,7 +660,7 @@ KV = """
                             size: self.width * 0.8, dp(1)
                             pos: self.center_x - self.width * 0.4, self.center_y
 
-                # -------- Game board (VISUALLY CENTERED) --------
+                # -------- Game board --------
                 AnchorLayout:
                     size_hint_y: None
                     height: root.grid_size
@@ -671,13 +671,8 @@ KV = """
                         id: game_board
                         cols: 3
                         rows: 3
-
-                        # INTERNAL spacing
                         spacing: dp(6)
-
-                        # CRITICAL FIX: symmetric outer padding
                         padding: dp(3), dp(3)
-
                         size_hint: None, None
                         size: root.grid_size, root.grid_size
 

@@ -2129,8 +2129,13 @@ class ChatScreen(Screen):
                 self.has_pending_invite = True  # Mark that invite is pending
             else:
                 # Show invite button for the receiver
-                self.add_game_invite_button(opponent_name, username)
+                # username is the inviter, so they are the opponent
+                self.add_game_invite_button(username, username)
                 self.has_pending_invite = True  # Mark that invite is pending
+            return
+
+        # Don't display GAME_ACCEPTED messages
+        if text.startswith("***GAME_ACCEPTED***"):
             return
 
         # Check if this is a system message (user joined/left)
@@ -2760,10 +2765,12 @@ class GameScreen(Screen):
         if result == "WON":
             status_text = "You Won!"
             popup_msg = f"Congratulations! You defeated {self.opponent_name}!"
+            print(self.opponent_name)
             border_color = (34/255, 177/255, 76/255, 1)  # Green
         elif result == "LOST":
             status_text = "You Lost"
             popup_msg = f"{self.opponent_name} defeated you!"
+            print(self.opponent_name)
             border_color = (231/255, 76/255, 60/255, 1)  # Red
         else:  # DRAW
             status_text = "It's a Draw!"

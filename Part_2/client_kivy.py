@@ -1632,11 +1632,24 @@ class MainScreen(Screen):
                             orientation="vertical", spacing=15, padding=20)
                         content.add_widget(
                             Label(text=f"{opponent_name} left the game", font_size=18))
-                        btn = Button(text="OK", size_hint_y=None, height=45)
+                        btn = Button(text="OK", size_hint_y=None, height=45, background_normal="",
+                                     background_color=DARK_BG2, color=TEXT_PRIMARY, bold=True)
+
+                        # Add rounded border
+                        with btn.canvas.after:
+                            Color(*OWN_COLOR)
+                            btn.border_line = Line(rounded_rectangle=(
+                                btn.x, btn.y, btn.width, btn.height, 8), width=1.5)
+                        btn.bind(pos=lambda inst, val: setattr(inst.border_line, 'rounded_rectangle', (inst.x, inst.y, inst.width, inst.height, 8)),
+                                 size=lambda inst, val: setattr(inst.border_line, 'rounded_rectangle', (inst.x, inst.y, inst.width, inst.height, 8)))
+
                         content.add_widget(btn)
 
                         popup = Popup(title="Game Ended", content=content,
                                       size_hint=(0.7, 0.3), auto_dismiss=False)
+                        popup.background = ""
+                        popup.background_color = BASE_BG
+                        popup.title_size = 20
 
                         def on_close(instance):
                             popup.dismiss()
@@ -2745,23 +2758,115 @@ class GameScreen(Screen):
     def show_game_end_popup(self, result):
         """Show popup with game result"""
         if result == "WON":
-            popup_title = "🏆 You Won!"
+            status_text = "You Won!"
             popup_msg = f"Congratulations! You defeated {self.opponent_name}!"
+            border_color = (34/255, 177/255, 76/255, 1)  # Green
         elif result == "LOST":
-            popup_title = "😢 You Lost"
+            status_text = "You Lost"
             popup_msg = f"{self.opponent_name} defeated you!"
+            border_color = (231/255, 76/255, 60/255, 1)  # Red
         else:  # DRAW
-            popup_title = "🤝 Draw!"
+            status_text = "It's a Draw!"
             popup_msg = "Great match! It's a draw!"
+            border_color = (52/255, 152/255, 219/255, 1)  # Cyan/Blue
 
-        content = BoxLayout(orientation="vertical", spacing=15, padding=20)
-        content.add_widget(
-            Label(text=popup_msg, font_size=18, size_hint_y=0.7))
+        # Create custom popup content
+        content = BoxLayout(
+            orientation="vertical",
+            spacing=0,
+            padding=0,
+            size_hint=(None, None),
+            size=(dp(320), dp(320))
+        )
 
-        close_btn = Button(text="OK", size_hint_y=0.3)
+        # Add background and border
+        with content.canvas.before:
+            # Dark background
+            Color(14/255, 16/255, 32/255, 1)  # BASE_BG
+            content.bg = RoundedRectangle(
+                radius=[dp(15)],
+                pos=content.pos,
+                size=content.size
+            )
+            # Colored border
+            Color(*border_color)
+            content.border = Line(
+                rounded_rectangle=(content.x, content.y,
+                                   content.width, content.height, dp(15)),
+                width=dp(3)
+            )
+
+        def update_popup_graphics(inst, val):
+            content.bg.pos = inst.pos
+            content.bg.size = inst.size
+            content.border.rounded_rectangle = (
+                inst.x, inst.y, inst.width, inst.height, dp(15))
+
+        content.bind(pos=update_popup_graphics, size=update_popup_graphics)
+
+        # Status label
+        status_label = Label(
+            text=status_text,
+            color=border_color,
+            font_size="28sp",
+            bold=True,
+            size_hint_y=0.35,
+            halign="center",
+            valign="middle"
+        )
+        status_label.bind(size=lambda inst, val: setattr(
+            inst, 'text_size', inst.size))
+        content.add_widget(status_label)
+
+        # Separator line
+        separator = Widget(size_hint_y=0.05)
+        with separator.canvas:
+            Color(*border_color)
+            separator.line = Line(
+                points=[0, 0, dp(320), 0],
+                width=dp(2)
+            )
+
+        def update_separator(inst, val):
+            separator.line.points = [
+                inst.x, inst.center_y, inst.x + inst.width, inst.center_y]
+
+        separator.bind(pos=update_separator, size=update_separator)
+        content.add_widget(separator)
+
+        # Message label
+        message_label = Label(
+            text=popup_msg,
+            color=TEXT_PRIMARY,
+            font_size="16sp",
+            size_hint_y=0.35,
+            halign="center",
+            valign="middle",
+            padding=(dp(15), dp(10))
+        )
+        message_label.bind(size=lambda inst, val: setattr(
+            inst, 'text_size', (inst.width - dp(30), inst.height)))
+        content.add_widget(message_label)
+
+        # OK Button
+        close_btn = StyledButton(
+            text="OK",
+            size_hint_y=0.25,
+            border_color=border_color,
+            background_color=DARK_BG2
+        )
         content.add_widget(close_btn)
 
-        popup = Popup(title=popup_title, content=content, size_hint=(0.8, 0.4))
+        # Create popup
+        popup = Popup(
+            content=content,
+            size_hint=(None, None),
+            size=(dp(320), dp(320)),
+            pos_hint={'center_x': 0.5, 'center_y': 0.5},
+            background="",
+            background_color=(0, 0, 0, 0)
+        )
+
         close_btn.bind(on_press=popup.dismiss)
         popup.open()
 

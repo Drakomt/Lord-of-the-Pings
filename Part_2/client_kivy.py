@@ -5,6 +5,7 @@ import socket
 import threading
 import os
 import time
+import random
 import kivy.properties
 from dotenv import load_dotenv
 from datetime import datetime
@@ -260,7 +261,7 @@ KV = """
             padding: [dp(10), dp(20), dp(10), dp(20)]
 
             Image:
-                source: "Lotp_Image_BP.png"
+                source: "assets/icons/Lotp_Image_BP.png"
                 size_hint: (None, None)
                 size: (min(300, root.width * 0.7), min(300, root.width * 0.7))
                 pos_hint: {"center_x": 0.5}
@@ -1709,8 +1710,21 @@ class MainScreen(Screen):
         if body.startswith("***GAME_RESET***"):
             # Opponent started a new game
             try:
+                msg_content = body.replace("***GAME_RESET***", "")
+                # Parse format: player_name|their_symbol
+                if "|" in msg_content:
+                    player_name, their_symbol = msg_content.split("|", 1)
+                else:
+                    # Fallback for old format without symbol
+                    player_name = msg_content
+                    their_symbol = "X"
+
                 game_screen = self.manager.get_screen("game")
                 if self.manager.current == "game":
+                    # Opponent got their_symbol, so we get the opposite
+                    my_symbol = "O" if their_symbol == "X" else "X"
+                    game_screen.next_game_opponent_symbol = their_symbol
+                    game_screen.next_game_my_symbol = my_symbol
                     game_screen.receive_opponent_reset()
             except Exception:
                 pass
@@ -1718,10 +1732,21 @@ class MainScreen(Screen):
 
         # Check for game acceptance messages
         if body.startswith("***GAME_ACCEPTED***"):
-            # Extract opponent name from message
+            # Extract opponent name and acceptor's symbol from message
             try:
-                opponent_name = body.replace("***GAME_ACCEPTED***", "")
-                # Redirect to game screen and setup as player X (inviter)
+                msg_content = body.replace("***GAME_ACCEPTED***", "")
+                # Parse format: opponent_name|acceptor_symbol
+                if "|" in msg_content:
+                    opponent_name, acceptor_symbol = msg_content.split("|", 1)
+                else:
+                    # Fallback for old format without symbol
+                    opponent_name = msg_content
+                    acceptor_symbol = random.choice(["X", "O"])
+
+                # Inviter gets the opposite symbol of what acceptor chose
+                inviter_symbol = "O" if acceptor_symbol == "X" else "X"
+
+                # Redirect to game screen
                 game_screen = self.manager.get_screen("game")
                 try:
                     chat_screen = self.manager.get_screen("chat")
@@ -1740,8 +1765,13 @@ class MainScreen(Screen):
                     chat_screen=chat_screen,
                     # Pass ChatScreen as score holder
                     score_holder=chat_screen if chat_screen else None,
-                    initial_player="X"  # Inviter is X
+                    initial_player="X"
                 )
+
+                # Inviter is the opposite symbol of acceptor
+                game_screen.player_symbol = inviter_symbol
+                game_screen.opponent_symbol = acceptor_symbol
+
                 Clock.schedule_once(lambda dt: setattr(
                     self.manager, 'current', 'game'), 0.1)
             except Exception:
@@ -2439,8 +2469,11 @@ class ChatScreen(Screen):
 
     def accept_game_invite(self, opponent):
         """Accept a game invite and navigate to game screen"""
-        # Send acceptance message so opponent redirects too
-        acceptance_msg = f"***GAME_ACCEPTED***{self.main_screen.username}"
+        # The acceptor (this player) randomly chooses their own symbol
+        acceptor_symbol = random.choice(["X", "O"])
+
+        # Send acceptance message with acceptor's symbol so inviter gets the opposite
+        acceptance_msg = f"***GAME_ACCEPTED***{self.main_screen.username}|{acceptor_symbol}"
         self.send_message(acceptance_msg)
 
         # Clear pending invite flag
@@ -2448,15 +2481,19 @@ class ChatScreen(Screen):
         if self.main_screen:
             self.main_screen.clear_invites_for_chat(self.chat_id)
 
-        # Setup game (this player will be O)
+        # Setup game with the acceptor's symbol
         game_screen = self.manager.get_screen("game")
         game_screen.setup_game(
             player_name=self.main_screen.username,
             opponent_name=opponent,
             chat_screen=self,
             score_holder=self,  # Pass ChatScreen's score container
-            initial_player="O"  # Accepting player is O
+            initial_player="X"  # Will be overridden below
         )
+        # Acceptor is the chosen symbol, opponent is the other
+        game_screen.player_symbol = acceptor_symbol
+        game_screen.opponent_symbol = "O" if acceptor_symbol == "X" else "X"
+
         self.manager.current = "game"
 
 
@@ -2534,12 +2571,14 @@ class GameScreen(Screen):
         self.main_screen = None  # Store main_screen reference for score updates
         self.score_holder = None  # Reference to ChatScreen for direct score updates
         self.cell_buttons = []
+        self.next_game_my_symbol = "X"  # Default symbol for next game
+        self.next_game_opponent_symbol = "O"  # Default opponent symbol for next game
 
     def on_enter(self):
         """Called when screen is displayed"""
         self.setup_board()
 
-    def setup_game(self, player_name, opponent_name, chat_screen, score_holder=None, initial_player="X"):
+    def setup_game(self, player_name, opponent_name, chat_screen, score_holder=None, initial_player="X", randomize_start=False):
         """Setup the game with player info"""
         self.player_name = player_name
         self.opponent_name = opponent_name
@@ -2547,6 +2586,11 @@ class GameScreen(Screen):
         self.score_holder = score_holder  # Store reference to ChatScreen's score container
         if chat_screen:
             self.main_screen = chat_screen.main_screen
+
+        # Randomize starting player if requested
+        if randomize_start:
+            initial_player = random.choice(["X", "O"])
+
         self.player_symbol = initial_player
         self.opponent_symbol = "O" if initial_player == "X" else "X"
 
@@ -2556,6 +2600,13 @@ class GameScreen(Screen):
             self.opponent_score = self.score_holder.losses
 
         self.game.reset()
+
+        # Hide new game button since a fresh game is starting
+        self.ids.new_game_btn.opacity = 0
+        self.ids.new_game_btn.disabled = True
+
+        # Clear the board immediately to prevent flashing old grid
+        Clock.schedule_once(lambda dt: self.setup_board(), 0)
 
         if self.chat_screen:
             try:
@@ -2721,21 +2772,27 @@ class GameScreen(Screen):
     def reset_game(self):
         """Start a new game"""
         self.game.reset()
+
+        # This player (the one pressing the button) chooses their own symbol
+        my_symbol = random.choice(["X", "O"])
+        self.player_symbol = my_symbol
+        self.opponent_symbol = "O" if my_symbol == "X" else "X"
+
         self.setup_board()
 
         # Hide new game button
         self.ids.new_game_btn.opacity = 0
         self.ids.new_game_btn.disabled = True
 
-        # Send reset message to opponent
-        self.send_game_reset()
+        # Send reset message to opponent with my chosen symbol
+        self.send_game_reset(my_symbol)
 
-    def send_game_reset(self):
-        """Send game reset message to opponent"""
+    def send_game_reset(self, my_symbol):
+        """Send game reset message to opponent with my chosen symbol"""
         if not self.chat_screen:
             return
 
-        reset_msg = f"***GAME_RESET***{self.player_name}"
+        reset_msg = f"***GAME_RESET***{self.player_name}|{my_symbol}"
         # Send without displaying in chat
         outbound = reset_msg
         if self.chat_screen.chat_id != "general":
@@ -2754,6 +2811,16 @@ class GameScreen(Screen):
                 f"{self.opponent_name} started a new game!")
 
         self.game.reset()
+
+        # Use the symbols received from the opponent's reset message
+        if hasattr(self, 'next_game_my_symbol'):
+            self.player_symbol = self.next_game_my_symbol
+            self.opponent_symbol = self.next_game_opponent_symbol
+        else:
+            # Fallback if symbols weren't set (shouldn't happen)
+            self.player_symbol = "X"
+            self.opponent_symbol = "O"
+
         self.setup_board()
 
         # Hide new game button
@@ -2966,7 +3033,7 @@ class ChatApp(App):
     def build(self):
         # Set window title and icon
         self.title = "Lord of the Pings"
-        self.icon = "Lotp_Icon_BP.ico"  # Change to your .ico file path if needed
+        self.icon = "assets/icons/Lotp_Icon_BP.ico"
 
         # Start server discovery when app starts
         start_discovery()

@@ -45,13 +45,13 @@
 במהלך הרצת היישום, לכדנו את התעבורה וניתחנו את השכבות:
 1. **שכבת התעבורה (TCP):** זיהינו את ה-3-Way Handshake (חבילות SYN, SYN-ACK, ACK).
 
-![Screenshot 2026-01-18 190511.png](wireshark/part2/screenshots/Screenshot%202026-01-18%20190511.png)
-![flag.syn == 1.png](wireshark/part2/screenshots/flag.syn%20%3D%3D%201.png)
+<!-- ![Screenshot 2026-01-18 190511.png](wireshark/part2/screenshots/Screenshot%202026-01-18%20190511.png) -->
+<!-- ![flag.syn == 1.png](wireshark/part2/screenshots/flag.syn%20%3D%3D%201.png) -->
 
 2. **שכבת הרשת (IP):** וידאנו שכתובות ה-IP וה-TTL נכונים.
 3. **שכבת היישום:** ניתחנו את המבנה של הודעות ה-Chat שנשלחו כ-Data בתוך ה-TCP Segment.
 
-![hellomassage.png](wireshark/part2/screenshots/hellomassage.png)
+<!-- ![hellomassage.png](wireshark/part2/screenshots/hellomassage.png) -->
 
 ---
 

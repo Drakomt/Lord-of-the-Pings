@@ -229,7 +229,7 @@ app.title("Lotp Server")
 app.geometry("600x420")
 app.configure(fg_color=BACKGROUND_COLOR)
 icon_path = os.path.join(os.path.dirname(
-    os.path.abspath(__file__)), "Lotp_Icon_BP.ico")
+    os.path.abspath(__file__)), "assets/icons/Lotp_Icon_BP.ico")
 app.iconbitmap(icon_path)
 
 # ----- Layout -----

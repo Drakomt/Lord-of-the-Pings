@@ -1222,19 +1222,14 @@ class LoginScreen(Screen):
                             "|", 1)[1].split(",") if n]
                     except Exception:
                         names = []
+                    # Delay update to allow AVATAR messages to be processed first
                     Clock.schedule_once(
-                        lambda dt, names=names: main.update_user_buttons(names))
+                        lambda dt, names=names: main.update_user_buttons(names), 0.1)
                 elif line.startswith("AVATAR|"):
                     try:
                         _, uname, avatar = line.split("|", 2)
                         user_avatars[uname] = avatar
-                        if uname == username:
-                            Clock.schedule_once(
-                                lambda dt: main.update_current_user_avatar())
-                        Clock.schedule_once(
-                            lambda dt: main.update_user_buttons(main.online_users))
-                        Clock.schedule_once(
-                            lambda dt: main.update_chat_cards())
+                        # Don't update UI here - let USERLIST update handle it after delay
                     except Exception:
                         pass
                 else:
@@ -1545,21 +1540,17 @@ class MainScreen(Screen):
                 if message.startswith("USERLIST|"):
                     names = [n for n in message.split(
                         "|", 1)[1].split(",") if n]
+                    # Delay update to allow subsequent AVATAR messages to be processed
                     Clock.schedule_once(
-                        lambda dt, names=names: self.update_user_buttons(names))
+                        lambda dt, names=names: self.update_user_buttons(names), 0.1)
                 elif message.startswith("AVATAR|"):
                     _, username, avatar = message.split("|", 2)
                     user_avatars[username] = avatar
 
-                    # אם זה האווטר שלי – טען אותו עכשיו (זה הזמן הנכון)
+                    # Update current user avatar immediately if it's for this user
                     if username == self.username:
                         Clock.schedule_once(
                             lambda dt: self.update_current_user_avatar())
-
-                    # ריענון UI
-                    Clock.schedule_once(
-                        lambda dt: self.update_user_buttons(self.online_users))
-                    Clock.schedule_once(lambda dt: self.update_chat_cards())
 
                     # Refresh chat screen if currently viewing a chat with this user
                     try:
@@ -2037,6 +2028,9 @@ class MainScreen(Screen):
         """Remove a chat from the chats dictionary and update UI"""
         if chat_id in self.chats:
             del self.chats[chat_id]
+        # Clear game records for this user to reset scores
+        if chat_id in self.game_records:
+            del self.game_records[chat_id]
         self.update_chat_cards()
 
     def return_to_login(self, popup):

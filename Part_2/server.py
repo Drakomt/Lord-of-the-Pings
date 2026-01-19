@@ -16,7 +16,10 @@ load_dotenv()
 
 # ====== SERVER CONFIG ======
 SERVER_HOST = os.environ.get("SERVER_HOST", "0.0.0.0")
-SERVER_PORT = int(os.environ.get("SERVER_PORT", 9000))
+PREFERRED_PORT = int(os.environ.get("SERVER_PORT", 9000))
+SERVER_PORT = None  # Will be set by find_available_port()
+PREFERRED_DISCOVERY_PORT = 9001
+DISCOVERY_PORT = None  # Will be set by find_available_discovery_port()
 # ===========================
 
 BACKGROUND_COLOR = "#0E1020"
@@ -26,10 +29,43 @@ OTHER_COLOR = "#1A1F3A"
 TEXT_COLOR = "#F2F2F2"
 
 # ====== DISCOVERY CONFIG ======
-DISCOVERY_PORT = 9001
 DISCOVERY_INTERVAL = 2  # seconds
-DISCOVERY_MESSAGE = f"LOTP_SERVER|{SERVER_PORT}"
+DISCOVERY_MESSAGE = None  # Will be set after SERVER_PORT is determined
 # =============================
+
+
+def find_available_port(start_port, max_attempts=50):
+    """
+    Find an available port starting from start_port.
+    Tries up to max_attempts different ports.
+    Returns the available port number, or None if none found.
+    """
+    for port in range(start_port, start_port + max_attempts):
+        try:
+            test_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            test_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            test_socket.bind((SERVER_HOST, port))
+            test_socket.close()
+            return port
+        except OSError:
+            continue
+    return None
+
+
+def find_available_discovery_port(start_port=9001, max_attempts=50):
+    """
+    Find an available UDP port for discovery broadcasts.
+    """
+    for port in range(start_port, start_port + max_attempts):
+        try:
+            test_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            test_socket.bind(("", port))
+            test_socket.close()
+            return port
+        except OSError:
+            continue
+    return None
+
 
 clients = {}        # socket -> username
 clients_lock = threading.Lock()
@@ -225,12 +261,32 @@ def handle_client(client_socket, address):
 
 
 def server_thread():
+    global SERVER_PORT, DISCOVERY_PORT, DISCOVERY_MESSAGE
+
+    # Find available port for main server
+    SERVER_PORT = find_available_port(PREFERRED_PORT)
+    if SERVER_PORT is None:
+        log(
+            f"[ERROR] Could not find available port starting from {PREFERRED_PORT}")
+        return
+
+    # Find available port for discovery
+    DISCOVERY_PORT = find_available_discovery_port(PREFERRED_DISCOVERY_PORT)
+    if DISCOVERY_PORT is None:
+        log(
+            f"[ERROR] Could not find available discovery port starting from {PREFERRED_DISCOVERY_PORT}")
+        return
+
+    # Set the discovery message now that we know the ports
+    DISCOVERY_MESSAGE = f"LOTP_SERVER|{SERVER_PORT}"
+
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server_socket.bind((SERVER_HOST, SERVER_PORT))
     server_socket.listen()
 
     log(f"[*] Server listening on {SERVER_HOST}:{SERVER_PORT}")
+    log(f"[*] Discovery broadcasting on port {DISCOVERY_PORT}")
 
     while True:
         client_socket, address = server_socket.accept()

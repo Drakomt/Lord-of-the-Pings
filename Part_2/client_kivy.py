@@ -445,7 +445,7 @@ KV = """
                         size: self.size
                 
                 StyledButton:
-                    image_source: "assets/icons/close.png"
+                    image_source: "assets/icons/X.png"
                     size_hint: (None, 1)
                     width: dp(40) if root.width < dp(700) else 0
                     opacity: 1 if root.width < dp(700) else 0
@@ -2630,6 +2630,9 @@ class GameScreen(Screen):
                 size=(self.cell_size, self.cell_size)
             )
             btn.cell_index = i
+            # Prepare buttons to display icons instead of text
+            btn.display_mode = "icon"
+            btn.image_source = ""
             btn.bind(on_press=self.on_cell_press)
             board_widget.add_widget(btn)
             self.cell_buttons.append(btn)
@@ -2720,11 +2723,13 @@ class GameScreen(Screen):
         self.show_game_end_popup(status_msg)
 
     def update_board(self):
-        """Update board display"""
+        """Update board display using X/O images"""
         for i, btn in enumerate(self.cell_buttons):
             cell_value = self.game.board[i]
-            if cell_value:
-                btn.text = cell_value
+            if cell_value == "X":
+                btn.text = ""
+                btn.display_mode = "icon"
+                btn.image_source = "assets/icons/X.png"
                 if cell_value == self.player_symbol:
                     # User's cells: blue background and border
                     btn.background_color = OWN_COLOR
@@ -2733,6 +2738,22 @@ class GameScreen(Screen):
                     # Opponent's cells: purple
                     btn.background_color = OTHER_COLOR
                     btn.border_color = OTHER_COLOR
+            elif cell_value == "O":
+                btn.text = ""
+                btn.display_mode = "icon"
+                btn.image_source = "assets/icons/O.png"
+                if cell_value == self.player_symbol:
+                    # User's cells: blue background and border
+                    btn.background_color = OWN_COLOR
+                    btn.border_color = OWN_COLOR
+                else:
+                    # Opponent's cells: purple
+                    btn.background_color = OTHER_COLOR
+                    btn.border_color = OTHER_COLOR
+            else:
+                # Empty cell
+                btn.text = ""
+                btn.image_source = ""
 
     def update_status(self):
         """Update game status label"""

@@ -98,6 +98,23 @@ def broadcast_avatars():
             broadcast(f"AVATAR|{username}|{avatar}")
 
 
+def broadcast_avatars_to_client(client_socket):
+    """Send all current avatars to a specific new client"""
+    for username, avatar in user_avatars.items():
+        if avatar:
+            try:
+                client_socket.sendall(f"AVATAR|{username}|{avatar}\n".encode())
+            except:
+                pass
+
+
+def broadcast_new_user_avatar(username):
+    """Broadcast only the new user's avatar to existing clients (not to themselves)"""
+    avatar = user_avatars.get(username)
+    if avatar:
+        broadcast(f"AVATAR|{username}|{avatar}")
+
+
 def handle_avatar_change(username, avatar_name, client_socket):
     available = list_available_avatars()
     if avatar_name not in available:
@@ -171,7 +188,12 @@ def handle_client(client_socket, address):
         broadcast(f"*** {username} joined the chat ***")
         update_user_list()
         broadcast_user_list()
-        broadcast_avatars()
+
+        # Send ALL avatars to the new client first (including their own)
+        broadcast_avatars_to_client(client_socket)
+
+        # Then send only the new user's avatar to existing clients
+        broadcast_new_user_avatar(username)
 
         while True:
             data = client_socket.recv(1024)

@@ -1552,6 +1552,11 @@ class MainScreen(Screen):
                         Clock.schedule_once(
                             lambda dt: self.update_current_user_avatar())
 
+                    # Refresh user list to show updated avatar
+                    Clock.schedule_once(
+                        lambda dt: self.update_user_buttons(self.online_users))
+                    Clock.schedule_once(lambda dt: self.update_chat_cards())
+
                     # Refresh chat screen if currently viewing a chat with this user
                     try:
                         chat_screen = self.manager.get_screen("chat")

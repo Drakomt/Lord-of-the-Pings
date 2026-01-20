@@ -17,10 +17,19 @@ load_dotenv()
 # ====== SERVER CONFIG ======
 SERVER_HOST = os.environ.get("SERVER_HOST", "0.0.0.0")
 PREFERRED_PORT = int(os.environ.get("SERVER_PORT", 9000))
-SERVER_PORT = None  # Will be set by find_available_port()
-PREFERRED_DISCOVERY_PORT = 9001
-DISCOVERY_PORT = None  # Will be set by find_available_discovery_port()
-# ===========================
+SERVER_PORT = None
+SERVER_PORT_AUTO_FALLBACK = os.environ.get(
+    "SERVER_PORT_AUTO_FALLBACK", "true").lower() == "true"
+
+# ====== DISCOVERY CONFIG ======
+PREFERRED_DISCOVERY_PORT = int(os.environ.get("DISCOVERY_PORT", 9001))
+DISCOVERY_PORT_AUTO_FALLBACK = os.environ.get(
+    "DISCOVERY_PORT_AUTO_FALLBACK", "true").lower() == "true"
+
+DISCOVERY_PORT = None
+DISCOVERY_INTERVAL = 2  # seconds
+DISCOVERY_MESSAGE = None
+# =============================
 
 BACKGROUND_COLOR = "#0E1020"
 ACCENT_COLOR = "#4E8AFF"
@@ -28,42 +37,59 @@ HOVER_COLOR = "#3357A0"
 OTHER_COLOR = "#1A1F3A"
 TEXT_COLOR = "#F2F2F2"
 
-# ====== DISCOVERY CONFIG ======
-DISCOVERY_INTERVAL = 2  # seconds
-DISCOVERY_MESSAGE = None  # Will be set after SERVER_PORT is determined
-# =============================
 
-
-def find_available_port(start_port, max_attempts=50):
+def find_available_port(start_port, max_attempts=50, allow_fallback=True):
     """
     Find an available port starting from start_port.
     Tries up to max_attempts different ports.
     Returns the available port number, or None if none found.
     """
-    for port in range(start_port, start_port + max_attempts):
+    if allow_fallback:
+        for port in range(start_port, start_port + max_attempts):
+            try:
+                test_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                # test_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) # Use for port reuse
+                test_socket.bind((SERVER_HOST, port))
+                test_socket.close()
+                return port
+            except OSError:
+                continue
+        return None
+    else:
         try:
             test_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            test_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            test_socket.bind((SERVER_HOST, port))
+            test_socket.bind((SERVER_HOST, start_port))
             test_socket.close()
-            return port
+            return start_port
         except OSError:
-            continue
-    return None
+            return None
 
 
-def find_available_discovery_port(start_port=9001, max_attempts=50):
+def find_available_discovery_port(start_port=9001, max_attempts=50, allow_fallback=True):
     """
     Find an available UDP port for discovery broadcasts.
+    If allow_fallback is False, only tries the exact start_port (no increment).
     """
-    for port in range(start_port, start_port + max_attempts):
+    if allow_fallback:
+        # Try incrementing ports if needed
+        for port in range(start_port, start_port + max_attempts):
+            try:
+                test_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                test_socket.bind(("", port))
+                test_socket.close()
+                return port
+            except OSError:
+                continue
+    else:
+        # Only try the exact port (manual override from env)
         try:
             test_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            test_socket.bind(("", port))
+            test_socket.bind(("", start_port))
             test_socket.close()
-            return port
+            return start_port
         except OSError:
-            continue
+            return None
+
     return None
 
 
@@ -263,23 +289,36 @@ def handle_client(client_socket, address):
 def server_thread():
     global SERVER_PORT, DISCOVERY_PORT, DISCOVERY_MESSAGE
 
-    # Find available port for main server
-    SERVER_PORT = find_available_port(PREFERRED_PORT)
+    # Find available port for main server (respect env strictness)
+    SERVER_PORT = find_available_port(
+        PREFERRED_PORT, allow_fallback=SERVER_PORT_AUTO_FALLBACK)
     if SERVER_PORT is None:
         log(
             f"[ERROR] Could not find available port starting from {PREFERRED_PORT}")
         return
 
-    # Find available port for discovery
-    DISCOVERY_PORT = find_available_discovery_port(PREFERRED_DISCOVERY_PORT)
+    # Find available port for discovery (respects env variable override)
+    DISCOVERY_PORT = find_available_discovery_port(
+        PREFERRED_DISCOVERY_PORT,
+        allow_fallback=DISCOVERY_PORT_AUTO_FALLBACK
+    )
     if DISCOVERY_PORT is None:
-        log(
-            f"[ERROR] Could not find available discovery port starting from {PREFERRED_DISCOVERY_PORT}")
+        if not DISCOVERY_PORT_AUTO_FALLBACK:
+            log(
+                f"[ERROR] Discovery port {PREFERRED_DISCOVERY_PORT} (from env) is in use and no fallback allowed")
+        else:
+            log(
+                f"[ERROR] Could not find available discovery port starting from {PREFERRED_DISCOVERY_PORT}")
         return
 
     # Set the discovery message now that we know the ports
     DISCOVERY_MESSAGE = f"LOTP_SERVER|{SERVER_PORT}"
 
+    # Log requested (preferred) vs actual (bound) ports for clarity
+    log(f"Requested server port: {PREFERRED_PORT} (strict={not SERVER_PORT_AUTO_FALLBACK})")
+    log(f"Bound server port: {SERVER_PORT}")
+    log(f"Requested discovery port: {PREFERRED_DISCOVERY_PORT} (strict={not DISCOVERY_PORT_AUTO_FALLBACK})")
+    log(f"Bound discovery port: {DISCOVERY_PORT}")
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server_socket.bind((SERVER_HOST, SERVER_PORT))

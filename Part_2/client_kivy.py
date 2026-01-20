@@ -1235,14 +1235,16 @@ class LoginScreen(Screen):
         # If we received non-error data, process it before showing the UI
         userlist_names = []
         if prebuffer:
-            # Process ALL messages first to populate user_avatars before updating UI
+            # Process ALL complete messages (delimited by newlines)
             buffer_str = premsg
-            for line in buffer_str.splitlines():
+            # Split by newlines but only process complete messages
+            while "\n" in buffer_str:
+                line, buffer_str = buffer_str.split("\n", 1)
                 line = line.strip()
                 if not line:
                     continue
 
-                # Try to parse as JSON first
+                # Try to parse as JSON
                 parsed = parse_json_message(line)
                 if parsed:
                     # Handle JSON messages during login
@@ -1261,6 +1263,9 @@ class LoginScreen(Screen):
                     elif msg_type == "SYSTEM":
                         # System messages during login can be ignored or stored
                         pass
+
+            # Note: Any incomplete message left in buffer_str is discarded
+            # as it will be re-sent or isn't critical for initial login state
 
             # Now schedule UI updates AFTER all data is processed
             if userlist_names:

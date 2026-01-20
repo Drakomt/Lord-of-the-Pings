@@ -62,7 +62,8 @@ def send_json_message(sock, msg_type, data):
     """Send a JSON-encoded message through socket"""
     try:
         payload = {"type": msg_type, "data": data}
-        sock.sendall(json.dumps(payload).encode())
+        # Delimit messages with a newline so the server can frame them correctly
+        sock.sendall((json.dumps(payload) + "\n").encode())
     except Exception as e:
         print(f"Error sending JSON message: {e}")
 
@@ -1231,7 +1232,7 @@ class LoginScreen(Screen):
         main.username = username
         main.sock = app.sock
 
-        # If we received non-error data, process it (JSON or legacy format)
+        # If we received non-error data, process it before showing the UI
         userlist_names = []
         if prebuffer:
             # Process ALL messages first to populate user_avatars before updating UI
@@ -1260,25 +1261,6 @@ class LoginScreen(Screen):
                     elif msg_type == "SYSTEM":
                         # System messages during login can be ignored or stored
                         pass
-
-                else:
-                    # Legacy string format fallback
-                    if line.startswith("USERLIST|"):
-                        try:
-                            userlist_names = [n for n in line.split(
-                                "|", 1)[1].split(",") if n]
-                        except Exception:
-                            userlist_names = []
-                    elif line.startswith("AVATAR|"):
-                        try:
-                            _, uname, avatar = line.split("|", 2)
-                            user_avatars[uname] = avatar
-                        except Exception:
-                            pass
-                    else:
-                        # Unknown message format - let the listener thread handle it
-                        Clock.schedule_once(
-                            lambda dt, m=line: main.route_message(m))
 
             # Now schedule UI updates AFTER all data is processed
             if userlist_names:
@@ -1431,8 +1413,7 @@ class MainScreen(Screen):
             return
 
         messages = self.chats[chat_id].get("messages", [])
-        filtered = [m for m in messages if not m.get(
-            "text", "").startswith("***GAME_INVITE***")]
+        filtered = [m for m in messages if m.get("kind") != "game_invite"]
         self.chats[chat_id]["messages"] = filtered
 
         try:
@@ -1602,265 +1583,9 @@ class MainScreen(Screen):
                     if parsed:
                         Clock.schedule_once(
                             lambda dt, msg=parsed: self.route_json_message(msg))
-                    else:
-                        # Fallback to legacy string format for backward compatibility
-                        print(
-                            f"[LEGACY] Processing non-JSON message: {message[:100]}")
-                        Clock.schedule_once(
-                            lambda dt, msg=message: self.route_message(msg))
 
         except:
             self.on_disconnected()
-
-    def route_message(self, message):
-        chat_id = None
-        is_self_sender = False
-        username = ""
-        body = message
-
-        if message.startswith("[PM ") and "->" in message:
-            parsed = self.parse_pm(message)
-            if parsed:
-                sender, target, body = parsed
-                username = sender.strip()
-                is_self_sender = (username == self.username.strip())
-                chat_id = sender if target == self.username else target
-        else:
-            chat_id = "general"
-            # Parse "username: body" format
-            if ":" in message:
-                try:
-                    username, body = message.split(":", 1)
-                    username = username.strip()
-                    body = body.strip()
-                    is_self_sender = (username == self.username)
-                except Exception:
-                    username = "Unknown"
-                    is_self_sender = False
-            else:
-                username = "Unknown"
-
-        if chat_id not in self.chats:
-            self.chats[chat_id] = {"messages": [], "unread": 0}
-
-        # If this is my own message echoed by the server, skip to avoid duplicate
-        if is_self_sender:
-            # Still refresh cards to keep UI consistent
-            self.update_chat_cards()
-            return
-
-        # Ensure only one active invite per chat
-        if body.startswith("***GAME_INVITE***"):
-            self.clear_invites_for_chat(chat_id)
-
-        # Check for game left messages
-        if body.startswith("***GAME_LEFT***"):
-            # Opponent left the game
-            try:
-                opponent_name = body.replace("***GAME_LEFT***", "")
-                self.clear_invites_for_chat(opponent_name)
-                if self.manager.current == "game":
-                    # Show popup and redirect to chat
-                    def show_left_popup(dt):
-                        content = BoxLayout(
-                            orientation="vertical", spacing=15, padding=20)
-                        content.add_widget(
-                            Label(text=f"{opponent_name} left the game", font_size=18))
-                        btn = Button(text="OK", size_hint_y=None, height=45, background_normal="",
-                                     background_color=DARK_BG2, color=TEXT_PRIMARY, bold=True)
-
-                        # Add rounded border
-                        with btn.canvas.after:
-                            Color(*OWN_COLOR)
-                            btn.border_line = Line(rounded_rectangle=(
-                                btn.x, btn.y, btn.width, btn.height, 8), width=1.5)
-                        btn.bind(pos=lambda inst, val: setattr(inst.border_line, 'rounded_rectangle', (inst.x, inst.y, inst.width, inst.height, 8)),
-                                 size=lambda inst, val: setattr(inst.border_line, 'rounded_rectangle', (inst.x, inst.y, inst.width, inst.height, 8)))
-
-                        content.add_widget(btn)
-
-                        popup = Popup(title="Game Ended", content=content,
-                                      size_hint=(0.7, 0.3), auto_dismiss=False)
-                        popup.background = ""
-                        popup.background_color = BASE_BG
-                        popup.title_size = 20
-
-                        def on_close(instance):
-                            popup.dismiss()
-                            # Navigate to chat screen
-                            try:
-                                chat_screen = self.manager.get_screen("chat")
-                                if chat_screen.chat_id == opponent_name or chat_screen.chat_id == self.username:
-                                    self.manager.current = "chat"
-                                else:
-                                    # Load the private chat with that user
-                                    chat_screen.load_chat(opponent_name, self)
-                                    self.manager.current = "chat"
-                            except:
-                                self.manager.current = "main"
-
-                        btn.bind(on_press=on_close)
-                        popup.open()
-
-                    Clock.schedule_once(show_left_popup, 0.1)
-            except Exception:
-                pass
-            return
-
-        # Check for game end messages
-        if body.startswith("***GAME_END***"):
-            # Opponent's game ended, update our score
-            try:
-                winner_symbol = body.replace("***GAME_END***", "")
-                game_screen = self.manager.get_screen("game")
-                show_popup = self.manager.current == "game"
-                game_screen.receive_opponent_game_end(
-                    winner_symbol, show_popup=show_popup)
-
-                # After updating game screen, refresh the chat invite stats if in chat
-                # Get opponent name from game_screen if available, otherwise from current chat
-                opponent_name = game_screen.opponent_name if game_screen.opponent_name else None
-                if not opponent_name and self.manager.current == "chat":
-                    try:
-                        chat_screen = self.manager.get_screen("chat")
-                        if chat_screen.chat_id != "general":
-                            opponent_name = chat_screen.chat_id
-                    except Exception:
-                        pass
-
-                if self.manager.current == "chat" and opponent_name:
-                    try:
-                        chat_screen = self.manager.get_screen("chat")
-                        if chat_screen.chat_id == opponent_name:
-                            chat_screen.update_invite_stats()
-                    except Exception:
-                        pass
-            except Exception:
-                pass
-            return
-
-        # Check for game reset messages
-        if body.startswith("***GAME_RESET***"):
-            # Opponent started a new game
-            try:
-                msg_content = body.replace("***GAME_RESET***", "")
-                # Parse format: player_name|their_symbol
-                if "|" in msg_content:
-                    player_name, their_symbol = msg_content.split("|", 1)
-                else:
-                    # Fallback for old format without symbol
-                    player_name = msg_content
-                    their_symbol = "X"
-
-                game_screen = self.manager.get_screen("game")
-                if self.manager.current == "game":
-                    # Opponent got their_symbol, so we get the opposite
-                    my_symbol = "O" if their_symbol == "X" else "X"
-                    game_screen.next_game_opponent_symbol = their_symbol
-                    game_screen.next_game_my_symbol = my_symbol
-                    game_screen.receive_opponent_reset()
-            except Exception:
-                pass
-            return
-
-        # Check for game acceptance messages
-        if body.startswith("***GAME_ACCEPTED***"):
-            # Extract opponent name and acceptor's symbol from message
-            try:
-                msg_content = body.replace("***GAME_ACCEPTED***", "")
-                # Parse format: opponent_name|acceptor_symbol
-                if "|" in msg_content:
-                    opponent_name, acceptor_symbol = msg_content.split("|", 1)
-                else:
-                    # Fallback for old format without symbol
-                    opponent_name = msg_content
-                    acceptor_symbol = random.choice(["X", "O"])
-
-                # Inviter gets the opposite symbol of what acceptor chose
-                inviter_symbol = "O" if acceptor_symbol == "X" else "X"
-
-                # Redirect to game screen
-                game_screen = self.manager.get_screen("game")
-                try:
-                    chat_screen = self.manager.get_screen("chat")
-                except:
-                    chat_screen = None
-
-                # Clear invites now that a game is starting
-                self.clear_invites_for_chat(opponent_name)
-                if chat_screen and chat_screen.chat_id == opponent_name:
-                    chat_screen.has_pending_invite = False
-                    chat_screen.update_invite_stats()
-
-                game_screen.setup_game(
-                    player_name=self.username,
-                    opponent_name=opponent_name,
-                    chat_screen=chat_screen,
-                    # Pass ChatScreen as score holder
-                    score_holder=chat_screen if chat_screen else None,
-                    initial_player="X"
-                )
-
-                # Inviter is the opposite symbol of acceptor
-                game_screen.player_symbol = inviter_symbol
-                game_screen.opponent_symbol = acceptor_symbol
-
-                Clock.schedule_once(lambda dt: setattr(
-                    self.manager, 'current', 'game'), 0.1)
-            except Exception:
-                pass
-            return
-
-        # Check for game move messages
-        if body.startswith("***GAME_MOVE***"):
-            # Extract game state and process it
-            try:
-                game_screen = self.manager.get_screen("game")
-                if self.manager.current == "game":
-                    # Parse: ***GAME_MOVE***[board_state]***current_player
-                    parts = body.split("***")
-                    if len(parts) >= 4:
-                        board_str = parts[2]
-                        current_player = parts[3]
-                        game_screen.receive_opponent_move(
-                            board_str, current_player)
-                return
-            except Exception:
-                pass
-
-        # Append the incoming message with separated username and body
-        self.chats[chat_id]["messages"].append(
-            {"username": username, "text": body, "is_own": False})
-
-        # If the chat is currently open, push the bubble live and avoid counting as unread
-        try:
-            chat_screen = self.manager.get_screen("chat")
-            if self.manager.current == "chat" and chat_screen.chat_id == chat_id:
-                # Ensure unread stays 0 for the open chat
-                self.chats[chat_id]["unread"] = 0
-                chat_screen.add_message_bubble(username, body, is_own=False)
-                Clock.schedule_once(
-                    lambda dt: chat_screen.scroll_to_bottom(), 0.05)
-            else:
-                # Not currently viewing this chat -> mark as unread
-                self.chats[chat_id]["unread"] += 1
-        except Exception:
-            # Fallback: if screen not ready, count as unread
-            self.chats[chat_id]["unread"] += 1
-
-        # Refresh cards to reflect unread changes
-        self.update_chat_cards()
-
-    def parse_pm(self, message):
-        try:
-            prefix, body = message.split("]:", 1)
-            body = body.strip()
-            prefix = prefix.strip("[]")
-            _, rest = prefix.split("PM ", 1)
-            sender, target = rest.split("->")
-            return sender.strip(), target.strip(), body
-        except Exception:
-            return None
 
     def route_json_message(self, msg_obj):
         """Route incoming JSON messages to appropriate handler"""
@@ -1868,12 +1593,8 @@ class MainScreen(Screen):
             msg_type = msg_obj.get("type", "")
             data = msg_obj.get("data", {})
 
-            # Debug logging
-            print(f"[JSON] Received: type={msg_type}, data={data}")
-
             if msg_type == "USERLIST":
                 names = data.get("users", [])
-                print(f"[JSON] Processing USERLIST: {names}")
                 Clock.schedule_once(
                     lambda dt, n=names: self.update_user_buttons(n), 0.1)
                 return  # Early return
@@ -1881,7 +1602,6 @@ class MainScreen(Screen):
             elif msg_type == "AVATAR":
                 username = data.get("username", "")
                 avatar = data.get("avatar", "")
-                print(f"[JSON] Processing AVATAR: {username} -> {avatar}")
                 if username and avatar:
                     user_avatars[username] = avatar
                     if username == self.username:
@@ -1910,9 +1630,6 @@ class MainScreen(Screen):
                 text = data.get("text", "")
                 is_self = (sender == self.username)
 
-                print(
-                    f"[JSON] Processing CHAT: from={sender}, to={recipient}, self={is_self}")
-
                 if recipient == "general":
                     chat_id = "general"
                 else:
@@ -1926,13 +1643,13 @@ class MainScreen(Screen):
                     return  # Don't process our own echo
                 else:
                     self.chats[chat_id]["messages"].append(
-                        {"username": sender, "text": text, "is_own": False})
+                        {"username": sender, "text": text, "is_own": False, "kind": "chat"})
                     try:
                         chat_screen = self.manager.get_screen("chat")
                         if self.manager.current == "chat" and chat_screen.chat_id == chat_id:
                             self.chats[chat_id]["unread"] = 0
                             chat_screen.add_message_bubble(
-                                sender, text, is_own=False)
+                                sender, text, is_own=False, kind="chat")
                             Clock.schedule_once(
                                 lambda dt: chat_screen.scroll_to_bottom(), 0.05)
                         else:
@@ -1945,11 +1662,10 @@ class MainScreen(Screen):
             elif msg_type == "SYSTEM":
                 text = data.get("text", "")
                 chat_id = data.get("chat_id", "general")
-                print(f"[JSON] Processing SYSTEM: {text} in {chat_id}")
                 if chat_id not in self.chats:
                     self.chats[chat_id] = {"messages": [], "unread": 0}
                 self.chats[chat_id]["messages"].append(
-                    {"username": "SYSTEM", "text": text, "is_own": False})
+                    {"username": "SYSTEM", "text": text, "is_own": False, "kind": "system"})
                 try:
                     chat_screen = self.manager.get_screen("chat")
                     if self.manager.current == "chat" and chat_screen.chat_id == chat_id:
@@ -1964,22 +1680,25 @@ class MainScreen(Screen):
                 return  # Early return
 
             elif msg_type == "GAME_INVITE":
-                opponent = data.get("opponent", "")
-                if opponent not in self.chats:
-                    self.chats[opponent] = {"messages": [], "unread": 0}
-                self.chats[opponent]["messages"].append(
-                    {"username": opponent, "text": f"***GAME_INVITE***{opponent}", "is_own": False})
+                inviter = data.get("opponent", "")
+                if not inviter:
+                    return  # Early return
+
+                if inviter not in self.chats:
+                    self.chats[inviter] = {"messages": [], "unread": 0}
+                self.chats[inviter]["messages"].append(
+                    {"username": inviter, "is_own": False, "kind": "game_invite"})
                 try:
                     chat_screen = self.manager.get_screen("chat")
-                    if self.manager.current == "chat" and chat_screen.chat_id == opponent:
-                        chat_screen.add_game_invite_button(opponent, opponent)
+                    if self.manager.current == "chat" and chat_screen.chat_id == inviter:
+                        chat_screen.add_game_invite_button(inviter, inviter)
                         chat_screen.has_pending_invite = True
                         Clock.schedule_once(
                             lambda dt: chat_screen.scroll_to_bottom(), 0.05)
                     else:
-                        self.chats[opponent]["unread"] += 1
+                        self.chats[inviter]["unread"] += 1
                 except Exception:
-                    self.chats[opponent]["unread"] += 1
+                    self.chats[inviter]["unread"] += 1
                 self.update_chat_cards()
                 return  # Early return
 
@@ -2117,12 +1836,10 @@ class MainScreen(Screen):
                 return  # Early return
 
             else:
-                # Unknown message type
-                print(f"[JSON] Unknown message type: {msg_type}")
                 return  # Early return
 
         except Exception as e:
-            print(f"[JSON] Error routing JSON message: {e}")
+            print(f"Error routing JSON message: {e}")
             import traceback
             traceback.print_exc()
 
@@ -2436,7 +2153,24 @@ class ChatScreen(Screen):
                 username = msg.get("username", "Unknown")
                 text = msg.get("text", "")
                 is_own = msg.get("is_own", False)
-                self.add_message_bubble(username, text, is_own)
+                kind = msg.get("kind", "chat")
+
+                if kind == "game_invite":
+                    # Store pending state so button renders
+                    self.has_pending_invite = True
+                    inviter = username or self.chat_id
+                    if is_own:
+                        self.add_system_message(
+                            f"You invited {self.chat_id} to play Tic-Tac-Toe!")
+                    else:
+                        self.add_game_invite_button(inviter, inviter)
+                    continue
+
+                if kind == "system":
+                    self.add_system_message(text)
+                    continue
+
+                self.add_message_bubble(username, text, is_own, kind=kind)
 
         Clock.schedule_once(lambda dt: self.scroll_to_bottom(), 0.05)
 
@@ -2448,35 +2182,29 @@ class ChatScreen(Screen):
 
         self.invite_stats_text = f"{self.wins}/{self.losses}"
 
-    def add_message_bubble(self, username, text, is_own):
-        # Check if this is a game invite
-        if text.startswith("***GAME_INVITE***"):
-            opponent_name = text.replace("***GAME_INVITE***", "")
+    def add_message_bubble(self, username, text, is_own, kind="chat"):
+        # Handle structured message kinds first
+        if kind == "game_invite":
+            inviter = username or self.chat_id
             if is_own:
-                # Show confirmation for the sender
                 self.add_system_message(
-                    f"You invited {opponent_name} to play Tic-Tac-Toe!")
-                self.has_pending_invite = True  # Mark that invite is pending
+                    f"You invited {self.chat_id} to play Tic-Tac-Toe!")
             else:
-                # Show invite button for the receiver
-                # username is the inviter, so they are the opponent
-                self.add_game_invite_button(username, username)
-                self.has_pending_invite = True  # Mark that invite is pending
+                self.add_game_invite_button(inviter, inviter)
+            self.has_pending_invite = True
             return
 
-        # Don't display GAME_ACCEPTED messages
-        if text.startswith("***GAME_ACCEPTED***"):
+        if kind == "system":
+            self.add_system_message(text)
             return
 
-        # Check if this is a system message (user joined/left)
+        # Fallback detection for textual system notices
         is_system_message = (
             "joined the chat" in text or
-            "left the chat" in text or
-            text.startswith("***")
+            "left the chat" in text
         )
 
         if is_system_message:
-            # Create centered system message
             self.add_system_message(text)
             return
 
@@ -2679,9 +2407,9 @@ class ChatScreen(Screen):
                 "messages": [], "unread": 0}
 
         self.main_screen.chats[self.chat_id]["messages"].append(
-            {"username": self.main_screen.username, "text": text.strip(), "is_own": True})
+            {"username": self.main_screen.username, "text": text.strip(), "is_own": True, "kind": "chat"})
         self.add_message_bubble(self.main_screen.username,
-                                text.strip(), is_own=True)
+                                text.strip(), is_own=True, kind="chat")
 
         # Send to server as JSON
         try:
@@ -2765,6 +2493,14 @@ class ChatScreen(Screen):
         if self.main_screen:
             self.main_screen.clear_invites_for_chat(self.chat_id)
         self.has_pending_invite = False
+
+        # Persist invite in chat history for consistent rendering
+        if self.main_screen:
+            if self.chat_id not in self.main_screen.chats:
+                self.main_screen.chats[self.chat_id] = {
+                    "messages": [], "unread": 0}
+            self.main_screen.chats[self.chat_id]["messages"].append(
+                {"username": self.main_screen.username, "is_own": True, "kind": "game_invite"})
 
         # Send special game invite message as JSON
         try:

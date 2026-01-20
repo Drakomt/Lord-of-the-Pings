@@ -23,8 +23,8 @@ def send_json_message(sock, msg_type, data):
     try:
         payload = {"type": msg_type, "data": data}
         sock.sendall((json.dumps(payload) + "\n").encode())
-    except Exception as e:
-        print(f"Error sending JSON message: {e}")
+    except:
+        pass  # Expected when client disconnects
 
 
 def broadcast_json(msg_type, data, sender_socket=None):
@@ -172,16 +172,6 @@ def list_available_avatars():
 # ================= SERVER LOGIC =================
 
 
-def broadcast(message, sender_socket=None):
-    with clients_lock:
-        for client in list(clients.keys()):
-            if client != sender_socket:
-                try:
-                    client.sendall((message + "\n").encode())
-                except:
-                    disconnect_client(client)
-
-
 def broadcast_user_list():
     with clients_lock:
         usernames = list(clients.values())
@@ -304,22 +294,30 @@ def handle_client(client_socket, address):
         # Then send only the new user's avatar to existing clients
         broadcast_new_user_avatar(username)
 
+        buffer = ""
         while True:
             data = client_socket.recv(1024)
             if not data:
                 break
-            message = data.decode().strip()
+            buffer += data.decode()
 
-            # Try to parse as JSON first
-            parsed = parse_json_message(message)
-            if parsed:
-                handle_json_message(client_socket, username, parsed)
-            else:
-                # Fallback to legacy string format for backward compatibility
-                handle_legacy_message(client_socket, username, message)
+            # Process newline-delimited JSON messages
+            while "\n" in buffer:
+                message, buffer = buffer.split("\n", 1)
+                message = message.strip()
+                if not message:
+                    continue
 
-    except Exception as e:
-        log(f"Error handling client {username}: {e}")
+                parsed = parse_json_message(message)
+                if parsed:
+                    handle_json_message(client_socket, username, parsed)
+                else:
+                    # Ignore legacy/plain messages now that JSON is required
+                    log(
+                        f"[WARN] Dropping non-JSON message from {username}: {message[:80]}")
+
+    except:
+        pass  # Connection errors are handled by disconnect_client
     finally:
         disconnect_client(client_socket)
 
@@ -446,32 +444,6 @@ def handle_json_message(client_socket, username, msg_obj):
         log(f"Error handling JSON message from {username}: {e}")
 
 
-def handle_legacy_message(client_socket, username, message):
-    """Handle legacy string-based messages for backward compatibility"""
-    try:
-        if message.startswith("SET_AVATAR|"):
-            _, avatar_name = message.split("|", 1)
-            handle_avatar_change(username, avatar_name, client_socket)
-        elif message.startswith("@"):
-            parts = message.split(" ", 1)
-            if len(parts) == 2 and parts[0][1:]:
-                send_private(client_socket, parts[0][1:], parts[1])
-            else:
-                send_json_message(client_socket, "SYSTEM", {
-                    "text": "Invalid private message format",
-                    "chat_id": "general"
-                })
-        else:
-            # Regular chat message
-            broadcast_json("CHAT", {
-                "sender": username,
-                "recipient": "general",
-                "text": message
-            }, sender_socket=client_socket)
-    except Exception as e:
-        log(f"Error handling legacy message from {username}: {e}")
-
-
 def server_thread():
     global SERVER_PORT, DISCOVERY_PORT, DISCOVERY_MESSAGE
 
@@ -500,18 +472,14 @@ def server_thread():
     # Set the discovery message now that we know the ports
     DISCOVERY_MESSAGE = f"LOTP_SERVER|{SERVER_PORT}"
 
-    # Log requested (preferred) vs actual (bound) ports for clarity
-    log(f"Requested server port: {PREFERRED_PORT} (strict={not SERVER_PORT_AUTO_FALLBACK})")
-    log(f"Bound server port: {SERVER_PORT}")
-    log(f"Requested discovery port: {PREFERRED_DISCOVERY_PORT} (strict={not DISCOVERY_PORT_AUTO_FALLBACK})")
-    log(f"Bound discovery port: {DISCOVERY_PORT}")
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server_socket.bind((SERVER_HOST, SERVER_PORT))
     server_socket.listen()
 
+    log(f"Server port: {SERVER_PORT}")
+    log(f"Discovery port: {DISCOVERY_PORT}")
     log(f"[*] Server listening on {SERVER_HOST}:{SERVER_PORT}")
-    log(f"[*] Discovery broadcasting on port {DISCOVERY_PORT}")
 
     while True:
         client_socket, address = server_socket.accept()

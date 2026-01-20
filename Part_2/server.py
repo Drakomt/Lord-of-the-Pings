@@ -9,10 +9,44 @@ import threading
 import random
 import os
 import time
+import json
 import customtkinter as ctk
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# ====== JSON MESSAGE PROTOCOL HELPERS ======
+
+
+def send_json_message(sock, msg_type, data):
+    """Send a JSON-encoded message to a specific client"""
+    try:
+        payload = {"type": msg_type, "data": data}
+        sock.sendall((json.dumps(payload) + "\n").encode())
+    except Exception as e:
+        print(f"Error sending JSON message: {e}")
+
+
+def broadcast_json(msg_type, data, sender_socket=None):
+    """Broadcast a JSON message to all clients except sender"""
+    payload = {"type": msg_type, "data": data}
+    message = json.dumps(payload) + "\n"
+    with clients_lock:
+        for client in list(clients.keys()):
+            if client != sender_socket:
+                try:
+                    client.sendall(message.encode())
+                except:
+                    disconnect_client(client)
+
+
+def parse_json_message(raw_string):
+    """Parse incoming JSON message, return dict or None"""
+    try:
+        return json.loads(raw_string)
+    except:
+        return None
+
 
 # ====== SERVER CONFIG ======
 SERVER_HOST = os.environ.get("SERVER_HOST", "0.0.0.0")
@@ -151,13 +185,13 @@ def broadcast(message, sender_socket=None):
 def broadcast_user_list():
     with clients_lock:
         usernames = list(clients.values())
-    broadcast("USERLIST|" + ",".join(usernames))
+    broadcast_json("USERLIST", {"users": usernames})
 
 
 def broadcast_avatars():
     for username, avatar in user_avatars.items():
         if avatar:
-            broadcast(f"AVATAR|{username}|{avatar}")
+            broadcast_json("AVATAR", {"username": username, "avatar": avatar})
 
 
 def broadcast_avatars_to_client(client_socket):
@@ -165,7 +199,8 @@ def broadcast_avatars_to_client(client_socket):
     for username, avatar in user_avatars.items():
         if avatar:
             try:
-                client_socket.sendall(f"AVATAR|{username}|{avatar}\n".encode())
+                send_json_message(client_socket, "AVATAR", {
+                                  "username": username, "avatar": avatar})
             except:
                 pass
 
@@ -174,21 +209,21 @@ def broadcast_new_user_avatar(username):
     """Broadcast only the new user's avatar to existing clients (not to themselves)"""
     avatar = user_avatars.get(username)
     if avatar:
-        broadcast(f"AVATAR|{username}|{avatar}")
+        broadcast_json("AVATAR", {"username": username, "avatar": avatar})
 
 
 def handle_avatar_change(username, avatar_name, client_socket):
     available = list_available_avatars()
     if avatar_name not in available:
         try:
-            client_socket.sendall(b"AVATAR_ERROR|invalid\n")
+            send_json_message(client_socket, "AVATAR_ERROR", {})
         except:
             disconnect_client(client_socket)
         return
 
     with clients_lock:
         user_avatars[username] = avatar_name
-    broadcast(f"AVATAR|{username}|{avatar_name}")
+    broadcast_json("AVATAR", {"username": username, "avatar": avatar_name})
 
 
 def send_private(sender_socket, target_username, message):
@@ -201,18 +236,23 @@ def send_private(sender_socket, target_username, message):
 
     if not target_socket:
         try:
-            sender_socket.sendall(
-                (f"*** User {target_username} not found ***\n").encode())
+            send_json_message(sender_socket, "SYSTEM", {
+                "text": f"User {target_username} not found",
+                "chat_id": "general"
+            })
         except:
             disconnect_client(sender_socket)
         return
 
-    payload = f"[PM {sender_name} -> {target_username}]: {message}"
-    for sock in (target_socket, sender_socket):  # echo to sender for context
-        try:
-            sock.sendall((payload + "\n").encode())
-        except:
-            disconnect_client(sock)
+    # Send only to target (sender already has it displayed locally)
+    try:
+        send_json_message(target_socket, "CHAT", {
+            "sender": sender_name,
+            "recipient": target_username,
+            "text": message
+        })
+    except:
+        disconnect_client(target_socket)
 
 
 def disconnect_client(client_socket):
@@ -225,12 +265,16 @@ def disconnect_client(client_socket):
     if username:
         user_avatars.pop(username, None)
         log(f"[-] {username} disconnected")
-        broadcast(f"*** {username} left the chat ***")
+        broadcast_json("SYSTEM", {
+            "text": f"{username} left the chat",
+            "chat_id": "general"
+        })
         update_user_list()
         broadcast_user_list()
 
 
 def handle_client(client_socket, address):
+    username = None
     try:
         username = client_socket.recv(1024).decode().strip()
         if not username:
@@ -247,7 +291,10 @@ def handle_client(client_socket, address):
             user_avatars[username] = avatar
 
         log(f"[+] {username} joined from {address}")
-        broadcast(f"*** {username} joined the chat ***")
+        broadcast_json("SYSTEM", {
+            "text": f"{username} joined the chat",
+            "chat_id": "general"
+        })
         update_user_list()
         broadcast_user_list()
 
@@ -262,28 +309,167 @@ def handle_client(client_socket, address):
             if not data:
                 break
             message = data.decode().strip()
-            if message.startswith("SET_AVATAR|"):
-                _, avatar_name = message.split("|", 1)
-                handle_avatar_change(username, avatar_name, client_socket)
-                continue
-            if message.startswith("@"):  # format: @target message
-                parts = message.split(" ", 1)
-                if len(parts) == 2 and parts[0][1:]:
-                    send_private(client_socket, parts[0][1:], parts[1])
-                else:
-                    try:
-                        client_socket.sendall(
-                            b"*** Invalid private message format. Use @username message ***\n")
-                    except:
-                        disconnect_client(client_socket)
-                continue
 
-            broadcast(f"{username}: {message}", client_socket)
+            # Try to parse as JSON first
+            parsed = parse_json_message(message)
+            if parsed:
+                handle_json_message(client_socket, username, parsed)
+            else:
+                # Fallback to legacy string format for backward compatibility
+                handle_legacy_message(client_socket, username, message)
 
-    except:
-        pass
+    except Exception as e:
+        log(f"Error handling client {username}: {e}")
     finally:
         disconnect_client(client_socket)
+
+
+def handle_json_message(client_socket, username, msg_obj):
+    """Handle incoming JSON messages from client"""
+    try:
+        msg_type = msg_obj.get("type", "")
+        data = msg_obj.get("data", {})
+
+        if msg_type == "CHAT":
+            sender = data.get("sender", username)
+            recipient = data.get("recipient", "general")
+            text = data.get("text", "")
+
+            if recipient == "general":
+                # Broadcast to all clients
+                broadcast_json("CHAT", {
+                    "sender": sender,
+                    "recipient": "general",
+                    "text": text
+                }, sender_socket=client_socket)
+            else:
+                # Private message
+                send_private(client_socket, recipient, text)
+
+        elif msg_type == "SET_AVATAR":
+            avatar_name = data.get("avatar", "")
+            if avatar_name:
+                handle_avatar_change(username, avatar_name, client_socket)
+
+        elif msg_type == "GAME_INVITE":
+            opponent = data.get("opponent", "")
+            if opponent:
+                with clients_lock:
+                    target_socket = next(
+                        (sock for sock, user in clients.items() if user == opponent),
+                        None
+                    )
+                if target_socket:
+                    send_json_message(target_socket, "GAME_INVITE", {
+                                      "opponent": username})
+
+        elif msg_type == "GAME_ACCEPTED":
+            player = data.get("player", username)
+            symbol = data.get("symbol", "X")
+            opponent = data.get("opponent", "")
+            # Send only to the opponent
+            if opponent:
+                with clients_lock:
+                    target_socket = next(
+                        (sock for sock, user in clients.items() if user == opponent),
+                        None
+                    )
+                if target_socket:
+                    send_json_message(target_socket, "GAME_ACCEPTED", {
+                        "player": player,
+                        "symbol": symbol
+                    })
+
+        elif msg_type == "GAME_MOVE":
+            board = data.get("board", [])
+            current_player = data.get("current_player", "X")
+            opponent = data.get("opponent", "")
+            # Send only to the opponent
+            if opponent:
+                with clients_lock:
+                    target_socket = next(
+                        (sock for sock, user in clients.items() if user == opponent),
+                        None
+                    )
+                if target_socket:
+                    send_json_message(target_socket, "GAME_MOVE", {
+                        "board": board,
+                        "current_player": current_player
+                    })
+
+        elif msg_type == "GAME_END":
+            result = data.get("result", "DRAW")
+            opponent = data.get("opponent", "")
+            # Send only to the opponent
+            if opponent:
+                with clients_lock:
+                    target_socket = next(
+                        (sock for sock, user in clients.items() if user == opponent),
+                        None
+                    )
+                if target_socket:
+                    send_json_message(target_socket, "GAME_END", {
+                                      "result": result})
+
+        elif msg_type == "GAME_RESET":
+            player = data.get("player", username)
+            symbol = data.get("symbol", "X")
+            opponent = data.get("opponent", "")
+            # Send only to the opponent
+            if opponent:
+                with clients_lock:
+                    target_socket = next(
+                        (sock for sock, user in clients.items() if user == opponent),
+                        None
+                    )
+                if target_socket:
+                    send_json_message(target_socket, "GAME_RESET", {
+                        "player": player,
+                        "symbol": symbol
+                    })
+
+        elif msg_type == "GAME_LEFT":
+            player = data.get("player", username)
+            opponent = data.get("opponent", "")
+            # Send only to the opponent
+            if opponent:
+                with clients_lock:
+                    target_socket = next(
+                        (sock for sock, user in clients.items() if user == opponent),
+                        None
+                    )
+                if target_socket:
+                    send_json_message(target_socket, "GAME_LEFT", {
+                                      "player": player})
+
+    except Exception as e:
+        log(f"Error handling JSON message from {username}: {e}")
+
+
+def handle_legacy_message(client_socket, username, message):
+    """Handle legacy string-based messages for backward compatibility"""
+    try:
+        if message.startswith("SET_AVATAR|"):
+            _, avatar_name = message.split("|", 1)
+            handle_avatar_change(username, avatar_name, client_socket)
+        elif message.startswith("@"):
+            parts = message.split(" ", 1)
+            if len(parts) == 2 and parts[0][1:]:
+                send_private(client_socket, parts[0][1:], parts[1])
+            else:
+                send_json_message(client_socket, "SYSTEM", {
+                    "text": "Invalid private message format",
+                    "chat_id": "general"
+                })
+        else:
+            # Regular chat message
+            broadcast_json("CHAT", {
+                "sender": username,
+                "recipient": "general",
+                "text": message
+            }, sender_socket=client_socket)
+    except Exception as e:
+        log(f"Error handling legacy message from {username}: {e}")
 
 
 def server_thread():

@@ -9,6 +9,7 @@ import random
 import kivy.properties
 from dotenv import load_dotenv
 from datetime import datetime
+import json
 from kivy.app import App
 from kivy.uix.screenmanager import ScreenManager, Screen
 from kivy.lang import Builder
@@ -53,6 +54,26 @@ INPUT_BG = (18/255, 20/255, 38/255, 1)
 ALERT_COLOR = (255/255, 88/255, 160/255, 1)
 
 load_dotenv()
+
+# ====== JSON MESSAGE PROTOCOL HELPERS ======
+
+
+def send_json_message(sock, msg_type, data):
+    """Send a JSON-encoded message through socket"""
+    try:
+        payload = {"type": msg_type, "data": data}
+        sock.sendall(json.dumps(payload).encode())
+    except Exception as e:
+        print(f"Error sending JSON message: {e}")
+
+
+def parse_json_message(raw_string):
+    """Try to parse string as JSON, return dict or None"""
+    try:
+        return json.loads(raw_string)
+    except:
+        return None
+
 
 # ====== DISCOVERY CONFIG ======
 DISCOVERY_PORT = 9001
@@ -1210,31 +1231,64 @@ class LoginScreen(Screen):
         main.username = username
         main.sock = app.sock
 
-        # If we received non-error data (like USERLIST| or join messages), feed it in
+        # If we received non-error data, process it (JSON or legacy format)
+        userlist_names = []
         if prebuffer:
-            for line in premsg.splitlines():
+            # Process ALL messages first to populate user_avatars before updating UI
+            buffer_str = premsg
+            for line in buffer_str.splitlines():
                 line = line.strip()
                 if not line:
                     continue
-                if line.startswith("USERLIST|"):
-                    try:
-                        names = [n for n in line.split(
-                            "|", 1)[1].split(",") if n]
-                    except Exception:
-                        names = []
-                    # Delay update to allow AVATAR messages to be processed first
-                    Clock.schedule_once(
-                        lambda dt, names=names: main.update_user_buttons(names), 0.1)
-                elif line.startswith("AVATAR|"):
-                    try:
-                        _, uname, avatar = line.split("|", 2)
-                        user_avatars[uname] = avatar
-                        # Don't update UI here - let USERLIST update handle it after delay
-                    except Exception:
+
+                # Try to parse as JSON first
+                parsed = parse_json_message(line)
+                if parsed:
+                    # Handle JSON messages during login
+                    msg_type = parsed.get("type", "")
+                    data = parsed.get("data", {})
+
+                    if msg_type == "USERLIST":
+                        userlist_names = data.get("users", [])
+
+                    elif msg_type == "AVATAR":
+                        uname = data.get("username", "")
+                        avatar = data.get("avatar", "")
+                        if uname and avatar:
+                            user_avatars[uname] = avatar
+
+                    elif msg_type == "SYSTEM":
+                        # System messages during login can be ignored or stored
                         pass
+
                 else:
-                    Clock.schedule_once(
-                        lambda dt, m=line: main.route_message(m))
+                    # Legacy string format fallback
+                    if line.startswith("USERLIST|"):
+                        try:
+                            userlist_names = [n for n in line.split(
+                                "|", 1)[1].split(",") if n]
+                        except Exception:
+                            userlist_names = []
+                    elif line.startswith("AVATAR|"):
+                        try:
+                            _, uname, avatar = line.split("|", 2)
+                            user_avatars[uname] = avatar
+                        except Exception:
+                            pass
+                    else:
+                        # Unknown message format - let the listener thread handle it
+                        Clock.schedule_once(
+                            lambda dt, m=line: main.route_message(m))
+
+            # Now schedule UI updates AFTER all data is processed
+            if userlist_names:
+                Clock.schedule_once(
+                    lambda dt: main.update_user_buttons(userlist_names), 0.1)
+
+        # If no prebuffer or no userlist, still initialize the display
+        # This ensures username shows even if we're the only user
+        if not userlist_names:
+            Clock.schedule_once(lambda dt: main.update_user_buttons([]), 0.1)
 
         # Stop discovery now that we're connected
         stop_discovery()
@@ -1518,7 +1572,8 @@ class MainScreen(Screen):
 
         try:
             if self.sock:
-                self.sock.sendall(f"SET_AVATAR|{avatar_name}".encode())
+                send_json_message(self.sock, "SET_AVATAR",
+                                  {"avatar": avatar_name})
         except Exception:
             self.on_disconnected()
 
@@ -1527,50 +1582,32 @@ class MainScreen(Screen):
             Clock.schedule_once(closer, 0)
 
     def listen_to_server(self):
+        buffer = ""
         try:
             while True:
                 data = self.sock.recv(1024)
                 if not data:
                     break
-                message = data.decode().strip()
-                if message.startswith("AVATAR_ERROR|"):
-                    Clock.schedule_once(
-                        lambda dt: self.show_avatar_error_popup())
-                    continue
-                if message.startswith("USERLIST|"):
-                    names = [n for n in message.split(
-                        "|", 1)[1].split(",") if n]
-                    # Delay update to allow subsequent AVATAR messages to be processed
-                    Clock.schedule_once(
-                        lambda dt, names=names: self.update_user_buttons(names), 0.1)
-                elif message.startswith("AVATAR|"):
-                    _, username, avatar = message.split("|", 2)
-                    user_avatars[username] = avatar
+                buffer += data.decode()
 
-                    # Update current user avatar immediately if it's for this user
-                    if username == self.username:
+                # Process complete messages (separated by newlines)
+                while "\n" in buffer:
+                    message, buffer = buffer.split("\n", 1)
+                    message = message.strip()
+                    if not message:
+                        continue
+
+                    # Try to parse as JSON first
+                    parsed = parse_json_message(message)
+                    if parsed:
                         Clock.schedule_once(
-                            lambda dt: self.update_current_user_avatar())
-
-                    # Refresh user list to show updated avatar
-                    Clock.schedule_once(
-                        lambda dt: self.update_user_buttons(self.online_users))
-                    Clock.schedule_once(lambda dt: self.update_chat_cards())
-
-                    # Refresh chat screen if currently viewing a chat with this user
-                    try:
-                        chat_screen = self.manager.get_screen("chat")
-                        if self.manager.current == "chat":
-                            # Check if the user whose avatar changed is in the current chat
-                            if chat_screen.chat_id == "general" or chat_screen.chat_id == username or self.username == username:
-                                Clock.schedule_once(
-                                    lambda dt: chat_screen.refresh_messages())
-                    except Exception:
-                        pass
-
-                else:
-                    Clock.schedule_once(
-                        lambda dt, msg=message: self.route_message(msg))
+                            lambda dt, msg=parsed: self.route_json_message(msg))
+                    else:
+                        # Fallback to legacy string format for backward compatibility
+                        print(
+                            f"[LEGACY] Processing non-JSON message: {message[:100]}")
+                        Clock.schedule_once(
+                            lambda dt, msg=message: self.route_message(msg))
 
         except:
             self.on_disconnected()
@@ -1824,6 +1861,270 @@ class MainScreen(Screen):
             return sender.strip(), target.strip(), body
         except Exception:
             return None
+
+    def route_json_message(self, msg_obj):
+        """Route incoming JSON messages to appropriate handler"""
+        try:
+            msg_type = msg_obj.get("type", "")
+            data = msg_obj.get("data", {})
+
+            # Debug logging
+            print(f"[JSON] Received: type={msg_type}, data={data}")
+
+            if msg_type == "USERLIST":
+                names = data.get("users", [])
+                print(f"[JSON] Processing USERLIST: {names}")
+                Clock.schedule_once(
+                    lambda dt, n=names: self.update_user_buttons(n), 0.1)
+                return  # Early return
+
+            elif msg_type == "AVATAR":
+                username = data.get("username", "")
+                avatar = data.get("avatar", "")
+                print(f"[JSON] Processing AVATAR: {username} -> {avatar}")
+                if username and avatar:
+                    user_avatars[username] = avatar
+                    if username == self.username:
+                        Clock.schedule_once(
+                            lambda dt: self.update_current_user_avatar())
+                    Clock.schedule_once(
+                        lambda dt: self.update_user_buttons(self.online_users))
+                    Clock.schedule_once(lambda dt: self.update_chat_cards())
+                    try:
+                        chat_screen = self.manager.get_screen("chat")
+                        if self.manager.current == "chat":
+                            if chat_screen.chat_id == "general" or chat_screen.chat_id == username or self.username == username:
+                                Clock.schedule_once(
+                                    lambda dt: chat_screen.refresh_messages())
+                    except Exception:
+                        pass
+                return  # Early return
+
+            elif msg_type == "AVATAR_ERROR":
+                Clock.schedule_once(lambda dt: self.show_avatar_error_popup())
+                return  # Early return
+
+            elif msg_type == "CHAT":
+                sender = data.get("sender", "")
+                recipient = data.get("recipient", "general")
+                text = data.get("text", "")
+                is_self = (sender == self.username)
+
+                print(
+                    f"[JSON] Processing CHAT: from={sender}, to={recipient}, self={is_self}")
+
+                if recipient == "general":
+                    chat_id = "general"
+                else:
+                    # For private chat, use sender name if it's from someone else, else use recipient
+                    chat_id = sender if not is_self else recipient
+
+                if chat_id not in self.chats:
+                    self.chats[chat_id] = {"messages": [], "unread": 0}
+
+                if is_self:
+                    return  # Don't process our own echo
+                else:
+                    self.chats[chat_id]["messages"].append(
+                        {"username": sender, "text": text, "is_own": False})
+                    try:
+                        chat_screen = self.manager.get_screen("chat")
+                        if self.manager.current == "chat" and chat_screen.chat_id == chat_id:
+                            self.chats[chat_id]["unread"] = 0
+                            chat_screen.add_message_bubble(
+                                sender, text, is_own=False)
+                            Clock.schedule_once(
+                                lambda dt: chat_screen.scroll_to_bottom(), 0.05)
+                        else:
+                            self.chats[chat_id]["unread"] += 1
+                    except Exception:
+                        self.chats[chat_id]["unread"] += 1
+                    self.update_chat_cards()
+                return  # Early return
+
+            elif msg_type == "SYSTEM":
+                text = data.get("text", "")
+                chat_id = data.get("chat_id", "general")
+                print(f"[JSON] Processing SYSTEM: {text} in {chat_id}")
+                if chat_id not in self.chats:
+                    self.chats[chat_id] = {"messages": [], "unread": 0}
+                self.chats[chat_id]["messages"].append(
+                    {"username": "SYSTEM", "text": text, "is_own": False})
+                try:
+                    chat_screen = self.manager.get_screen("chat")
+                    if self.manager.current == "chat" and chat_screen.chat_id == chat_id:
+                        chat_screen.add_system_message(text)
+                        Clock.schedule_once(
+                            lambda dt: chat_screen.scroll_to_bottom(), 0.05)
+                    else:
+                        self.chats[chat_id]["unread"] += 1
+                except Exception:
+                    self.chats[chat_id]["unread"] += 1
+                self.update_chat_cards()
+                return  # Early return
+
+            elif msg_type == "GAME_INVITE":
+                opponent = data.get("opponent", "")
+                if opponent not in self.chats:
+                    self.chats[opponent] = {"messages": [], "unread": 0}
+                self.chats[opponent]["messages"].append(
+                    {"username": opponent, "text": f"***GAME_INVITE***{opponent}", "is_own": False})
+                try:
+                    chat_screen = self.manager.get_screen("chat")
+                    if self.manager.current == "chat" and chat_screen.chat_id == opponent:
+                        chat_screen.add_game_invite_button(opponent, opponent)
+                        chat_screen.has_pending_invite = True
+                        Clock.schedule_once(
+                            lambda dt: chat_screen.scroll_to_bottom(), 0.05)
+                    else:
+                        self.chats[opponent]["unread"] += 1
+                except Exception:
+                    self.chats[opponent]["unread"] += 1
+                self.update_chat_cards()
+                return  # Early return
+
+            elif msg_type == "GAME_MOVE":
+                board = data.get("board", [])
+                current_player = data.get("current_player", "X")
+                try:
+                    game_screen = self.manager.get_screen("game")
+                    if game_screen and hasattr(game_screen, 'receive_opponent_move'):
+                        game_screen.receive_opponent_move(
+                            str(board), current_player)
+                except Exception:
+                    pass
+                return  # Early return
+
+            elif msg_type == "GAME_END":
+                result = data.get("result", "DRAW")
+                try:
+                    game_screen = self.manager.get_screen("game")
+                    if game_screen and hasattr(game_screen, 'receive_opponent_game_end'):
+                        game_screen.receive_opponent_game_end(
+                            result, show_popup=True)
+                except Exception:
+                    pass
+                return  # Early return
+
+            elif msg_type == "GAME_RESET":
+                player_name = data.get("player", "")
+                symbol = data.get("symbol", "X")
+                try:
+                    game_screen = self.manager.get_screen("game")
+                    if game_screen:
+                        game_screen.next_game_my_symbol = "O" if symbol == "X" else "X"
+                        game_screen.next_game_opponent_symbol = symbol
+                        game_screen.receive_opponent_reset()
+                except Exception:
+                    pass
+                return  # Early return
+
+            elif msg_type == "GAME_ACCEPTED":
+                player_name = data.get("player", "")  # The acceptor
+                symbol = data.get("symbol", "X")  # Acceptor's chosen symbol
+                # Should be us (the inviter)
+                opponent = data.get("opponent", "")
+
+                # This means someone accepted OUR invite, so we're the inviter
+                # The acceptor chose their symbol, we get the opposite
+                inviter_symbol = "O" if symbol == "X" else "X"
+
+                try:
+                    # Find the chat screen to use as reference
+                    chat_screen = None
+                    try:
+                        chat_screen = self.manager.get_screen("chat")
+                    except:
+                        pass
+
+                    # Setup and navigate to game screen
+                    game_screen = self.manager.get_screen("game")
+                    game_screen.setup_game(
+                        player_name=self.username,
+                        opponent_name=player_name,
+                        chat_screen=chat_screen,
+                        score_holder=chat_screen if chat_screen and chat_screen.chat_id == player_name else None,
+                        initial_player="X"  # X always starts
+                    )
+                    game_screen.player_symbol = inviter_symbol
+                    game_screen.opponent_symbol = symbol
+
+                    # Clear pending invite
+                    if chat_screen and chat_screen.chat_id == player_name:
+                        chat_screen.has_pending_invite = False
+                        self.clear_invites_for_chat(player_name)
+
+                    # Navigate to game screen
+                    self.manager.current = "game"
+                except Exception as e:
+                    print(f"Error handling GAME_ACCEPTED: {e}")
+                    import traceback
+                    traceback.print_exc()
+                return  # Early return
+
+            elif msg_type == "GAME_LEFT":
+                player_name = data.get("player", "")
+                try:
+                    self.clear_invites_for_chat(player_name)
+                    if self.manager.current == "game":
+                        # Show popup and redirect to chat
+                        def show_left_popup(dt):
+                            content = BoxLayout(
+                                orientation="vertical", spacing=15, padding=20)
+                            content.add_widget(
+                                Label(text=f"{player_name} left the game", font_size=18))
+                            btn = Button(text="OK", size_hint_y=None, height=45, background_normal="",
+                                         background_color=DARK_BG2, color=TEXT_PRIMARY, bold=True)
+
+                            # Add rounded border
+                            with btn.canvas.after:
+                                Color(*OWN_COLOR)
+                                btn.border_line = Line(rounded_rectangle=(
+                                    btn.x, btn.y, btn.width, btn.height, 8), width=1.5)
+                            btn.bind(pos=lambda inst, val: setattr(inst.border_line, 'rounded_rectangle', (inst.x, inst.y, inst.width, inst.height, 8)),
+                                     size=lambda inst, val: setattr(inst.border_line, 'rounded_rectangle', (inst.x, inst.y, inst.width, inst.height, 8)))
+
+                            content.add_widget(btn)
+
+                            popup = Popup(title="Game Ended", content=content,
+                                          size_hint=(0.7, 0.3), auto_dismiss=False)
+                            popup.background = ""
+                            popup.background_color = BASE_BG
+                            popup.title_size = 20
+
+                            def on_close(instance):
+                                popup.dismiss()
+                                # Navigate to chat screen
+                                try:
+                                    chat_screen = self.manager.get_screen(
+                                        "chat")
+                                    if chat_screen.chat_id == player_name or chat_screen.chat_id == self.username:
+                                        self.manager.current = "chat"
+                                    else:
+                                        # Load the private chat with that user
+                                        chat_screen.load_chat(
+                                            player_name, self)
+                                        self.manager.current = "chat"
+                                except:
+                                    self.manager.current = "main"
+
+                            btn.bind(on_press=on_close)
+                            popup.open()
+
+                        Clock.schedule_once(show_left_popup, 0.1)
+                except Exception as e:
+                    print(f"Error handling GAME_LEFT: {e}")
+                return  # Early return
+
+            else:
+                # Unknown message type
+                print(f"[JSON] Unknown message type: {msg_type}")
+                return  # Early return
+
+        except Exception as e:
+            print(f"[JSON] Error routing JSON message: {e}")
+            import traceback
+            traceback.print_exc()
 
     def update_user_buttons(self, names):
         # Store previous online users to detect disconnections
@@ -2372,10 +2673,6 @@ class ChatScreen(Screen):
             return
         self.ids.message_input.text = ""
 
-        outbound = text.strip()
-        if self.chat_id != "general":
-            outbound = f"@{self.chat_id} {outbound}"
-
         # Add to local chat
         if self.chat_id not in self.main_screen.chats:
             self.main_screen.chats[self.chat_id] = {
@@ -2386,9 +2683,17 @@ class ChatScreen(Screen):
         self.add_message_bubble(self.main_screen.username,
                                 text.strip(), is_own=True)
 
-        # Send to server
+        # Send to server as JSON
         try:
-            self.main_screen.sock.sendall(outbound.encode())
+            send_json_message(
+                self.main_screen.sock,
+                "CHAT",
+                {
+                    "sender": self.main_screen.username,
+                    "recipient": self.chat_id,
+                    "text": text.strip()
+                }
+            )
         except:
             self.main_screen.on_disconnected()
 
@@ -2461,19 +2766,38 @@ class ChatScreen(Screen):
             self.main_screen.clear_invites_for_chat(self.chat_id)
         self.has_pending_invite = False
 
-        # Send special game invite message
-        opponent = self.chat_id
-        invite_msg = f"***GAME_INVITE***{opponent}"
-        self.send_message(invite_msg)
+        # Send special game invite message as JSON
+        try:
+            send_json_message(
+                self.main_screen.sock,
+                "GAME_INVITE",
+                {"opponent": self.chat_id}
+            )
+            # Show confirmation message to the sender
+            self.add_system_message(
+                f"You invited {self.chat_id} to play Tic-Tac-Toe!")
+            self.has_pending_invite = True  # Mark that we sent an invite
+        except:
+            self.main_screen.on_disconnected()
 
     def accept_game_invite(self, opponent):
         """Accept a game invite and navigate to game screen"""
         # The acceptor (this player) randomly chooses their own symbol
         acceptor_symbol = random.choice(["X", "O"])
 
-        # Send acceptance message with acceptor's symbol so inviter gets the opposite
-        acceptance_msg = f"***GAME_ACCEPTED***{self.main_screen.username}|{acceptor_symbol}"
-        self.send_message(acceptance_msg)
+        # Send acceptance message with acceptor's symbol as JSON
+        try:
+            send_json_message(
+                self.main_screen.sock,
+                "GAME_ACCEPTED",
+                {
+                    "player": self.main_screen.username,
+                    "symbol": acceptor_symbol,
+                    "opponent": opponent
+                }
+            )
+        except:
+            self.main_screen.on_disconnected()
 
         # Clear pending invite flag
         self.has_pending_invite = False
@@ -2675,14 +2999,16 @@ class GameScreen(Screen):
         if not self.chat_screen:
             return
 
-        move_msg = f"***GAME_MOVE***{self.game.board}***{self.game.current_player}"
-        # Send without displaying in chat
-        outbound = move_msg
-        if self.chat_screen.chat_id != "general":
-            outbound = f"@{self.chat_screen.chat_id} {move_msg}"
-
         try:
-            self.chat_screen.main_screen.sock.sendall(outbound.encode())
+            send_json_message(
+                self.chat_screen.main_screen.sock,
+                "GAME_MOVE",
+                {
+                    "board": self.game.board,
+                    "current_player": self.game.current_player,
+                    "opponent": self.opponent_name
+                }
+            )
         except:
             pass
 
@@ -2708,13 +3034,16 @@ class GameScreen(Screen):
         self.ids.new_game_btn.disabled = False
 
         # Send game end message so opponent knows game ended and can show their popup
-        end_msg = f"***GAME_END***{result}"
         if self.chat_screen:
-            outbound = end_msg
-            if self.chat_screen.chat_id != "general":
-                outbound = f"@{self.chat_screen.chat_id} {end_msg}"
             try:
-                self.chat_screen.main_screen.sock.sendall(outbound.encode())
+                send_json_message(
+                    self.chat_screen.main_screen.sock,
+                    "GAME_END",
+                    {
+                        "result": result,
+                        "opponent": self.opponent_name
+                    }
+                )
             except:
                 pass
 
@@ -2812,14 +3141,16 @@ class GameScreen(Screen):
         if not self.chat_screen:
             return
 
-        reset_msg = f"***GAME_RESET***{self.player_name}|{my_symbol}"
-        # Send without displaying in chat
-        outbound = reset_msg
-        if self.chat_screen.chat_id != "general":
-            outbound = f"@{self.chat_screen.chat_id} {reset_msg}"
-
         try:
-            self.chat_screen.main_screen.sock.sendall(outbound.encode())
+            send_json_message(
+                self.chat_screen.main_screen.sock,
+                "GAME_RESET",
+                {
+                    "player": self.player_name,
+                    "symbol": my_symbol,
+                    "opponent": self.opponent_name
+                }
+            )
         except:
             pass
 
@@ -3002,12 +3333,15 @@ class GameScreen(Screen):
         """Exit the game and go back to chat"""
         # Send message that user is leaving
         if self.chat_screen:
-            leave_msg = f"***GAME_LEFT***{self.player_name}"
-            outbound = leave_msg
-            if self.chat_screen.chat_id != "general":
-                outbound = f"@{self.chat_screen.chat_id} {leave_msg}"
             try:
-                self.chat_screen.main_screen.sock.sendall(outbound.encode())
+                send_json_message(
+                    self.chat_screen.main_screen.sock,
+                    "GAME_LEFT",
+                    {
+                        "player": self.player_name,
+                        "opponent": self.opponent_name
+                    }
+                )
             except:
                 pass
 

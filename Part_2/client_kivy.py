@@ -2229,23 +2229,25 @@ class ChatScreen(Screen):
                 )
 
         bubble_layout = BoxLayout(
-            orientation='vertical', size_hint=(None, None), padding=(dp(12), dp(8)), spacing=dp(5))
+            orientation='vertical', size_hint=(None, None), padding=(dp(12), dp(10)), spacing=dp(10))
 
-        # Username label
-        username_label = Label(
-            text=username,
-            color=TEXT_PRIMARY,
-            size_hint=(None, None),
-            halign='left',
-            font_size='11sp',
-            bold=True
-        )
+        # Username label (hide for own messages)
+        username_label = None
+        if not is_own:
+            username_label = Label(
+                text=username,
+                color=TEXT_PRIMARY,
+                size_hint=(None, None),
+                halign='left',
+                font_size='11sp',
+                bold=True
+            )
 
-        def update_username_size(inst, val):
-            inst.size = inst.texture_size
+            def update_username_size(inst, val):
+                inst.size = inst.texture_size
 
-        username_label.bind(texture_size=update_username_size)
-        username_label.text_size = (None, None)
+            username_label.bind(texture_size=update_username_size)
+            username_label.text_size = (None, None)
 
         # Message label
         msg_label = Label(
@@ -2277,19 +2279,27 @@ class ChatScreen(Screen):
             color=(1, 1, 1, 1),
             font_size='10sp',
             size_hint=(1, None),
-            height=15,
+            height=18,
             halign='right'
         )
         time_label.bind(size=lambda inst, val: setattr(
             inst, 'text_size', (inst.width, None)))
 
-        bubble_layout.add_widget(username_label)
+        if username_label:
+            bubble_layout.add_widget(username_label)
         bubble_layout.add_widget(msg_label)
         bubble_layout.add_widget(time_label)
 
         def update_bubble_size(inst, val):
-            inst.width = max(msg_label.width, username_label.width, 65) + 24
-            inst.height = username_label.height + msg_label.height + time_label.height + 20
+            name_width = username_label.width if username_label else 0
+            name_height = username_label.height if username_label else 0
+            # Calculate spacing: vertical padding (top+bottom=24) + spacing between elements
+            num_elements = (1 if username_label else 0) + 1 + \
+                1  # username (if present) + msg + time
+            spacing_total = dp(6) * max(0, num_elements - 1)
+            inst.width = max(msg_label.width, name_width, 65) + 24
+            inst.height = name_height + msg_label.height + \
+                time_label.height + dp(24) + spacing_total
 
         bubble_layout.bind(minimum_size=update_bubble_size)
 

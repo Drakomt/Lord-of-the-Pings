@@ -2229,7 +2229,7 @@ class ChatScreen(Screen):
                 )
 
         bubble_layout = BoxLayout(
-            orientation='vertical', size_hint=(None, None), padding=(dp(12), dp(10)), spacing=dp(10))
+            orientation='vertical', size_hint=(None, None), padding=(dp(12), dp(7)), spacing=dp(10))
 
         # Username label (hide for own messages)
         username_label = None

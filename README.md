@@ -183,17 +183,17 @@
 * **Kivy**: עבור ממשק הלקוח.
 * **CustomTkinter**: עבור ממשק השרת.
 * **python-dotenv**: לניהול משתני סביבה.
-* **Socket & Threading**: ספריות מובנות לניהול התקשורת.
-* **JSON**: לעיבוד הפרוטוקול.
+* **Socket & Threading**: (רק לבדוק שקיימות) ספריות מובנות לניהול התקשורת.
+* **JSON**: (קיים בפייתון בדיפולט) לעיבוד הפרוטוקול. 
 * 
 ```bash
-pip install kivy customtkinter python-dotenv
+
 ```
 
 ### הגדרת קובץ .env
-לצורך הרצה לוקאלית על אותו מחשב, יש ליצור קובץ בשם `.env` בתיקיית הפרויקט ולכתוב בו:
+במידה ורוצים להריץ לוקאלית על אותו מחשב, יש ליצור קובץ בשם `.env` בתיקיית הפרויקט ולכתוב בו:
 ```bash
-[env: HOST=127.0.0.1]
+HOST=127.0.0.1
 ```
 ### 🚀 הרצת המערכת
 1. **הפעלת השרת:** הריצו את הפקודה: 

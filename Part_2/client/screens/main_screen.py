@@ -16,11 +16,11 @@ from kivy.uix.screenmanager import Screen
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.widget import Widget
 
-from client import state
-from client.constants import ALERT_COLOR, BASE_BG, DARK_BG, DARK_BG2, OTHER_COLOR, OWN_COLOR, TEXT_PRIMARY
-from client.discovery import restart_discovery
-from client.paths import AVATARS_DIR
-from client.protocol import parse_json_message, send_json_message
+from client.core import state
+from client.config.constants import ALERT_COLOR, BASE_BG, DARK_BG, DARK_BG2, OTHER_COLOR, OWN_COLOR, TEXT_PRIMARY
+from client.core.discovery import restart_discovery
+from client.config.paths import AVATARS_DIR
+from client.core.protocol import parse_json_message, send_json_message
 from client.widgets.avatar_button import AvatarButton
 
 

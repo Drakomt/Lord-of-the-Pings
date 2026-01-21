@@ -8,7 +8,7 @@ from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.image import Image
 from kivy.uix.label import Label
 
-from client.constants import DARK_BG2, OTHER_COLOR, TEXT_PRIMARY
+from client.config.constants import DARK_BG2, OTHER_COLOR, TEXT_PRIMARY
 
 
 class StyledButton(ButtonBehavior, FloatLayout):

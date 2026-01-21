@@ -4,7 +4,7 @@ from kivy.uix.behaviors import ButtonBehavior
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.image import Image
 
-from client.constants import OTHER_COLOR, OWN_COLOR
+from client.config.constants import OTHER_COLOR, OWN_COLOR
 
 
 class AvatarButton(ButtonBehavior, FloatLayout):

@@ -13,10 +13,10 @@ from kivy.uix.label import Label
 from kivy.uix.popup import Popup
 from kivy.uix.screenmanager import Screen
 
-from client import state
-from client.constants import ALERT_COLOR, BASE_BG, DARK_BG2, OWN_COLOR, TEXT_PRIMARY
-from client.discovery import server_online, stop_discovery
-from client.protocol import parse_json_message
+from client.core import state
+from client.config.constants import ALERT_COLOR, BASE_BG, DARK_BG2, OWN_COLOR, TEXT_PRIMARY
+from client.core.discovery import server_online, stop_discovery
+from client.core.protocol import parse_json_message
 
 
 class LoginScreen(Screen):

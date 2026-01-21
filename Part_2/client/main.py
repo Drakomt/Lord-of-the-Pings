@@ -15,7 +15,7 @@ from kivy.lang import Builder
 from kivy.uix.screenmanager import ScreenManager
 from kivy.resources import resource_add_path
 
-from client.discovery import start_discovery
+from client.core.discovery import start_discovery
 from client.ui.kv_layout import KV
 from client.screens.login_screen import LoginScreen
 from client.screens.main_screen import MainScreen

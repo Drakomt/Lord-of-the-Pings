@@ -11,10 +11,10 @@ from kivy.uix.scrollview import ScrollView
 from kivy.uix.screenmanager import Screen
 from kivy.uix.widget import Widget
 
-from client import state
-from client.constants import ALERT_COLOR, OTHER_COLOR, OWN_COLOR, SYSTEM_COLOR, TEXT_PRIMARY, TEXT_HINT
-from client.paths import AVATARS_DIR
-from client.protocol import send_json_message
+from client.core import state
+from client.config.constants import ALERT_COLOR, OTHER_COLOR, OWN_COLOR, SYSTEM_COLOR, TEXT_PRIMARY, TEXT_HINT
+from client.config.paths import AVATARS_DIR
+from client.core.protocol import send_json_message
 from client.widgets.styled_button import StyledButton
 from kivy.uix.image import Image
 

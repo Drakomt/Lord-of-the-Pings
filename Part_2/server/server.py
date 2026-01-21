@@ -16,7 +16,6 @@ if __package__ in (None, ""):
 
 import customtkinter as ctk
 
-from server.avatars import get_random_avatar, list_available_avatars
 from server.config import (
     ACCENT_COLOR,
     BACKGROUND_COLOR,
@@ -29,10 +28,12 @@ from server.config import (
     TEXT_COLOR,
     DISCOVERY_PORT_AUTO_FALLBACK,
     SERVER_PORT_AUTO_FALLBACK,
+    find_available_discovery_port,
+    find_available_port,
 )
-from server.ports import find_available_discovery_port, find_available_port
-from server.protocol import broadcast_json, parse_json_message, send_json_message
-from server import state
+from server.core.avatars import get_random_avatar, list_available_avatars
+from server.core.protocol import broadcast_json, parse_json_message, send_json_message
+from server.core import state
 
 
 def update_user_list():

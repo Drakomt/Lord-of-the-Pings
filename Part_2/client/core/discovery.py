@@ -3,8 +3,9 @@ import socket
 import threading
 import time
 
-from client import config, state
-from client.protocol import parse_json_message
+from client.config import config
+from client.core import state
+from client.core.protocol import parse_json_message
 
 
 def try_broadcast_discovery():
@@ -60,6 +61,7 @@ def find_server():
 
 def start_discovery():
     """Start server discovery in a background thread."""
+
     def worker():
         state.DISCOVERY_START_TIME = time.time()
         timeout_action_taken = False

@@ -12,8 +12,8 @@ from kivy.uix.anchorlayout import AnchorLayout
 from kivy.uix.relativelayout import RelativeLayout
 from kivy.uix.widget import Widget
 
-from client.constants import BASE_BG, DARK_BG2, OTHER_COLOR, OWN_COLOR, TEXT_PRIMARY
-from client.protocol import send_json_message
+from client.config.constants import BASE_BG, DARK_BG2, OTHER_COLOR, OWN_COLOR, TEXT_PRIMARY
+from client.core.protocol import send_json_message
 from client.widgets.styled_button import StyledButton
 
 

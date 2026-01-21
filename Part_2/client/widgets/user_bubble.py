@@ -5,7 +5,7 @@ from kivy.uix.image import Image
 from kivy.uix.label import Label
 from kivy.uix.widget import Widget
 
-from client.constants import INPUT_BG, OTHER_COLOR, TEXT_HINT, TEXT_PRIMARY
+from client.config.constants import INPUT_BG, OTHER_COLOR, TEXT_HINT, TEXT_PRIMARY
 
 
 class UserBubbleWidget(BoxLayout):

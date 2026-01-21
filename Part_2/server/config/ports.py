@@ -1,6 +1,12 @@
 import socket
 
-from server.config import PREFERRED_DISCOVERY_PORT, PREFERRED_PORT, SERVER_HOST, SERVER_PORT_AUTO_FALLBACK, DISCOVERY_PORT_AUTO_FALLBACK
+from .config import (
+    PREFERRED_DISCOVERY_PORT,
+    PREFERRED_PORT,
+    SERVER_HOST,
+    SERVER_PORT_AUTO_FALLBACK,
+    DISCOVERY_PORT_AUTO_FALLBACK,
+)
 
 
 def find_available_port(start_port, max_attempts=50, allow_fallback=True):
@@ -25,7 +31,7 @@ def find_available_port(start_port, max_attempts=50, allow_fallback=True):
             return None
 
 
-def find_available_discovery_port(start_port=9001, max_attempts=50, allow_fallback=True):
+def find_available_discovery_port(start_port=PREFERRED_DISCOVERY_PORT, max_attempts=50, allow_fallback=True):
     """Find an available UDP port for discovery broadcasts."""
     if allow_fallback:
         for port in range(start_port, start_port + max_attempts):

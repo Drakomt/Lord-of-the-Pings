@@ -1,5 +1,7 @@
 import json
 
+from client.core import state
+
 
 def send_json_message(sock, msg_type, data):
     """Send a JSON-encoded message through socket."""

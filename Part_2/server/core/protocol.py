@@ -1,5 +1,7 @@
 import json
 
+from server.core import state
+
 
 def send_json_message(sock, msg_type, data):
     """Send a JSON-encoded message to a specific client."""
@@ -12,12 +14,10 @@ def send_json_message(sock, msg_type, data):
 
 def broadcast_json(msg_type, data, sender_socket=None):
     """Broadcast a JSON message to all clients except the sender."""
-    from server.state import clients, clients_lock
-
     payload = {"type": msg_type, "data": data}
     message = json.dumps(payload) + "\n"
-    with clients_lock:
-        for client in list(clients.keys()):
+    with state.clients_lock:
+        for client in list(state.clients.keys()):
             if client != sender_socket:
                 try:
                     client.sendall(message.encode())

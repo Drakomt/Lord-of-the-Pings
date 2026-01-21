@@ -78,26 +78,33 @@ def parse_json_message(raw_string):
 
 # ====== DISCOVERY CONFIG ======
 DISCOVERY_PORT = 9001
-DISCOVERY_TIMEOUT = 10  # seconds - longer initial timeout
+DISCOVERY_TIMEOUT = 10
 DISCOVERY_PREFIX = "LOTP_SERVER|"
-DISCOVERY_RETRY_INTERVAL = 3  # seconds - retry every 3 seconds if not found
+DISCOVERY_RETRY_INTERVAL = int(os.environ.get("DISCOVERY_RETRY_INTERVAL", "3"))
+# Maximum time to wait for discovery before optional localhost fallback (configurable via env)
+DISCOVERY_FORCE_TIMEOUT = int(os.environ.get("DISCOVERY_FORCE_TIMEOUT", "20"))
 user_avatars = {}   # username -> avatar filename
 
 # ====== SERVER CONFIG ======
-# Check if env vars are set - if yes, use them as manual override
-# If not, use broadcast discovery
+# Priority 1: Check if env vars are set - if yes, use them as manual override (skip discovery)
+# Priority 2: Otherwise, use broadcast discovery
+# Priority 3: If discovery times out and LOCALHOST_FALLBACK=true, switch to localhost
 ENV_HOST = os.environ.get("HOST")
 ENV_PORT = os.environ.get("SERVER_PORT")
 USE_ENV_OVERRIDE = ENV_HOST is not None and ENV_PORT is not None
+# Localhost fallback after timeout: enabled by default, can be disabled via env
+LOCALHOST_FALLBACK = os.environ.get(
+    "LOCALHOST_FALLBACK", "true").lower() == "true"
 
 if USE_ENV_OVERRIDE:
     HOST = ENV_HOST
     SERVER_PORT = int(ENV_PORT)
 else:
-    HOST = "127.0.0.1"  # Placeholder, will be set by discovery
-    SERVER_PORT = 9000  # Placeholder, will be set by discovery
+    HOST = None  # Will be set by discovery, None means not yet discovered
+    SERVER_PORT = None  # Will be set by discovery
 
 DISCOVERED = False  # Flag to track if server was discovered
+DISCOVERY_START_TIME = None  # Track when discovery started
 
 # ====== Custom Styled Button Widget ======
 
@@ -332,7 +339,7 @@ KV = """
                     background_color: 18/255., 20/255., 38/255., 1  # INPUT_BG
                     background_normal: "" 
                     padding: [dp(15), (self.height - self.line_height) / 2]
-                    on_text_validate: root.login(username_input.text)
+                    on_text_validate: root.login(username_input.text) if root.can_login else root.show_server_offline_popup()
 
             StyledButton:
                 text: "ENTER"
@@ -341,6 +348,7 @@ KV = """
                 pos_hint: {"center_x": 0.5}
                 border_color: 78/255, 138/255, 255/255, 1
                 background_color: 18/255, 20/255, 38/255, 1
+                disabled: not root.can_login
                 on_press: root.login(username_input.text)
 
 <MainScreen>:
@@ -728,7 +736,7 @@ discovery_thread_stop = False  # Flag to stop the discovery thread
 
 def try_broadcast_discovery():
     """
-    Tries to discover server via UDP broadcast.
+    Tries to discover server via UDP broadcast (JSON format).
     Returns (ip, port) or None if not found within timeout.
     """
     try:
@@ -745,11 +753,14 @@ def try_broadcast_discovery():
                 data, addr = sock.recvfrom(1024)
                 message = data.decode()
 
-                if message.startswith(DISCOVERY_PREFIX):
-                    port = int(message.split("|")[1])
-                    server_ip = addr[0]
-                    sock.close()
-                    return server_ip, port
+                # Parse JSON discovery message
+                parsed = parse_json_message(message)
+                if parsed and parsed.get("type") == "DISCOVERY":
+                    port = parsed.get("data", {}).get("port")
+                    if port:
+                        server_ip = addr[0]
+                        sock.close()
+                        return server_ip, port
 
             except socket.timeout:
                 continue
@@ -798,37 +809,79 @@ def find_server():
 def start_discovery():
     """
     Starts server discovery in a background thread.
-    Tries broadcast and env vars, retries if not found.
-    Stops when connection is established.
+    Handles both broadcast discovery and ENV override with optional localhost fallback.
     """
     def worker():
-        global discovery_thread_stop, HOST, SERVER_PORT, DISCOVERED
+        global discovery_thread_stop, HOST, SERVER_PORT, DISCOVERED, DISCOVERY_START_TIME
+        DISCOVERY_START_TIME = time.time()
+        timeout_action_taken = False
 
-        # If env override is set, use it immediately without retrying
+        # If env override is set, use it immediately
         if USE_ENV_OVERRIDE:
             HOST = ENV_HOST
             SERVER_PORT = int(ENV_PORT)
             DISCOVERED = True
             print(f"[Discovery] Using env override: {HOST}:{SERVER_PORT}")
-            discovery_thread_stop = True  # Stop discovery thread
-            return
+            # Don't stop yet - continue monitoring for fallback
+        else:
+            # Start broadcast discovery
+            while not discovery_thread_stop:
+                # If discovery took too long, optionally fallback to localhost; otherwise keep searching
+                if (not timeout_action_taken) and (time.time() - DISCOVERY_START_TIME > DISCOVERY_FORCE_TIMEOUT):
+                    timeout_action_taken = True
+                    if LOCALHOST_FALLBACK:
+                        fallback_port = int(
+                            os.environ.get("SERVER_PORT", 9000))
+                        print(
+                            f"[Discovery] Timeout after {DISCOVERY_FORCE_TIMEOUT}s, falling back to localhost:{fallback_port}")
+                        HOST = "127.0.0.1"
+                        SERVER_PORT = fallback_port
+                        DISCOVERED = True
+                        break
+                    else:
+                        print(
+                            f"[Discovery] Timeout after {DISCOVERY_FORCE_TIMEOUT}s, continuing search (no localhost fallback)")
 
-        # Otherwise, search for broadcast
+                result = find_server()
+
+                if result:
+                    server_ip, server_port = result
+                    HOST = server_ip
+                    SERVER_PORT = server_port
+                    DISCOVERED = True
+                    print(
+                        f"[Discovery] Found server via broadcast at {HOST}:{SERVER_PORT}")
+                    break  # Stop searching once found
+                else:
+                    # Not found, wait before retrying
+                    if not discovery_thread_stop:
+                        time.sleep(DISCOVERY_RETRY_INTERVAL)
+
+            return  # Exit early for broadcast mode
+
+        # ENV override mode: monitor for fallback
         while not discovery_thread_stop:
-            result = find_server()
+            if (not timeout_action_taken) and (time.time() - DISCOVERY_START_TIME > DISCOVERY_FORCE_TIMEOUT):
+                timeout_action_taken = True
+                # After timeout, check if env IP is reachable
+                if not server_online():
+                    if LOCALHOST_FALLBACK:
+                        fallback_port = int(
+                            os.environ.get("SERVER_PORT", 9000))
+                        print(
+                            f"[Discovery] ENV override unreachable after {DISCOVERY_FORCE_TIMEOUT}s, falling back to localhost:{fallback_port}")
+                        HOST = "127.0.0.1"
+                        SERVER_PORT = fallback_port
+                    else:
+                        print(
+                            f"[Discovery] ENV override {ENV_HOST}:{ENV_PORT} unreachable, but LOCALHOST_FALLBACK=false, continuing with original")
+                else:
+                    print(
+                        f"[Discovery] ENV override {HOST}:{SERVER_PORT} is online")
 
-            if result:
-                server_ip, server_port = result
-                HOST = server_ip
-                SERVER_PORT = server_port
-                DISCOVERED = True
-                print(
-                    f"[Discovery] Found server via broadcast at {HOST}:{SERVER_PORT}")
-                break  # Stop searching once found
-            else:
-                # Not found, wait before retrying
-                if not discovery_thread_stop:
-                    time.sleep(DISCOVERY_RETRY_INTERVAL)
+            # Check periodically in case manual IP comes back up
+            if not discovery_thread_stop:
+                time.sleep(DISCOVERY_RETRY_INTERVAL)
 
     threading.Thread(target=worker, daemon=True).start()
 
@@ -854,6 +907,11 @@ def restart_discovery():
 
 
 def server_online():
+    """Check if server is online. Only return True if we have a valid discovered/configured address."""
+    # If HOST/SERVER_PORT are None, discovery hasn't finished yet
+    if HOST is None or SERVER_PORT is None:
+        return False
+
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(0.8)
@@ -1060,6 +1118,9 @@ class UserBubbleWidget(BoxLayout):
 
 
 class LoginScreen(Screen):
+    # Reflects whether the real server is reachable; gates login
+    can_login = BooleanProperty(False)
+
     def on_enter(self):
         # Check server status immediately (don't wait for first interval)
         threading.Thread(target=self.perform_ping, daemon=True).start()
@@ -1085,12 +1146,16 @@ class LoginScreen(Screen):
         Clock.schedule_once(lambda dt: self.update_label(online))
 
     def update_label(self, online):
+        # Always show actual connectivity status immediately
+        # Discovery runs silently in background
         if online:
             self.ids.server_status_lbl.text = "ONLINE"
             self.ids.server_status_lbl.color = OWN_COLOR
+            self.can_login = True
         else:
             self.ids.server_status_lbl.text = "OFFLINE"
             self.ids.server_status_lbl.color = ALERT_COLOR
+            self.can_login = False
 
     def show_server_offline_popup(self):
         content = BoxLayout(orientation="vertical", spacing=15, padding=20)
@@ -1183,11 +1248,10 @@ class LoginScreen(Screen):
         # Clear any previous error when attempting login
         self.ids.error_label.text = ""
 
-        # If not using env override, verify server is actually reachable
-        if not USE_ENV_OVERRIDE:
-            if not server_online():
-                self.show_server_offline_popup()
-                return
+        # Verify server is actually reachable (status label reflects this)
+        if not server_online():
+            self.show_server_offline_popup()
+            return
 
         app = App.get_running_app()
         prebuffer = b""

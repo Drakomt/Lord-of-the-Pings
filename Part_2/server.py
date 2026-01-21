@@ -469,8 +469,9 @@ def server_thread():
                 f"[ERROR] Could not find available discovery port starting from {PREFERRED_DISCOVERY_PORT}")
         return
 
-    # Set the discovery message now that we know the ports
-    DISCOVERY_MESSAGE = f"LOTP_SERVER|{SERVER_PORT}"
+    # Set the discovery message now that we know the ports (JSON format)
+    DISCOVERY_MESSAGE = json.dumps(
+        {"type": "DISCOVERY", "data": {"port": SERVER_PORT}})
 
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)

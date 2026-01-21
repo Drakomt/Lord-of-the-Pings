@@ -211,11 +211,21 @@ pip install kivy customtkinter python-dotenv
 ### 1. שלב ההתחברות (Login)
 * **הסבר:** הלקוח שולח הודעה מסוג `login` עם הכינוי שבחר. השרת מאשר את הכניסה ומעדכן את רשימת המשתמשים.
 
+- login : 
+
+<img src="Readme_img/img_login.png" width="60%">
+
+- שרת :
+
 <img src="Readme_img/img_server.png" width="70%">
 
 ### 2. שליחת הודעת צ'אט
 * **הסבר:** המשתמש מקליד הודעה. הלקוח עוטף אותה ב-JSON ושולח. השרת מקבל אותה ומפיץ אותה ללקוח הספציפי בשיחה פרטית או לכולם בצ'אט הקבוצתי .
+- מסך ראשי:
 
+<img src="Readme_img/img_main.png" width="60%">
+
+- שיחה פרטית: 
 
 <img src="Readme_img/img_chat.png" width="40%">
 

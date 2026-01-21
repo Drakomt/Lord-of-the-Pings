@@ -1,6 +1,6 @@
 <div dir="rtl">
 
-![img_5.png](img_5.png)
+![img_5.png](Readme_img/img_5.png)
 ## 🌐 Network Communication Project – TCP/IP, Wireshark & Socket Programming
 
 ---
@@ -116,30 +116,30 @@
 ### 1. מבנה השכבות (The OSI Model in Practice)
 בכל מנה שנבחר ב-Wireshark, ניתן לראות את ההיררכיה שיצרנו במחברת. השכבות מסודרות מהנמוכה לגבוהה: Ethernet (קישור), IPv4 (רשת), TCP (תעבורה), ונתוני ה-HTTP (אפליקציה).
 
-![img.png](img.png)
+![img.png](Readme_img/img.png)
 
 ### 2. שכבת ה-IP וכתובות הלופבק
 בלכידה ניתן לראות שכתובות המקור (Source) והיעד (Destination) הן `127.0.0.1`. זהו אימות לכך שהזרקת המנות עבדה דרך ה-Npcap Loopback Adapter. ניתן לראות בשדה ה-Protocol שכתוב `TCP`, מה שמראה שה-IP "נושא" בתוכו סגמנט תעבורה.
 
-![img_1.png](img_1.png)
+![img_1.png](Readme_img/img_1.png)
 
 ### 3. פורטים בשכבת התעבורה (TCP Ports)
 השתמשנו בפורטים שהגדרנו ידנית ב-CSV. ב-Wireshark ניתן לראות את ה-Source Port (למשל `42069` בבקשת לקוח) ואת ה-Destination Port (למשל `80` עבור שרת ה-Web). הפרדה זו מאפשרת למחשב לדעת לאזו אפליקציה לשלוח את המידע.
 
-![img_2.png](img_2.png)
+![img_2.png](Readme_img/img_2.png)
 
 ### 4. דגלי בקרה (Flags)
 שדה ה-Flags ב-TCP מספק הנחיות לניהול הקשר. במחברת הגדרנו את הערך הקסדצימלי `0x18`.
 * **מה זה אומר?** ערך זה מייצג שילוב של **PSH (Push)** ו-**ACK (Acknowledgment)**.
 * **איך רואים זאת בלכידה?** תחת עץ ה-Flags ב-TCP, נראה ששני הדגלים הללו הם היחידים שמסומנים ב-"Set" (1). דגל ה-PSH מבטיח שהנתונים יעברו מיד לאפליקציה ולא יתעכבו בזיכרון המערכת.
 
-![img_3.png](img_3.png)
+![img_3.png](Readme_img/img_3.png)
 
 ### 5. תוכן המנה (Payload / Data)
 זהו החלק ה"עטוף" ביותר. בתוך ה-Payload של ה-TCP, ניתן לראות את המחרוזת המקורית שכתבנו ב-CSV.
 * **דוגמה מהלכידה:** אם נסתכל על הייצוג ב-ASCII (בצד ימין למטה ב-Wireshark), נראה בבירור טקסט כמו `GET /logo.png` או `HTTP/1.1 301 Moved`. זהו האישור הסופי לכך שכל תהליך האריזה הצליח והמידע הגיע ליעדו ללא שינוי.
 
-![img_4.png](img_4.png)
+![img_4.png](Readme_img/img_4.png)
 ---
 
 ## 💬 חלק 2 – מימוש יישום רשת וניתוח תעבורה

@@ -103,7 +103,16 @@ def broadcast_new_user_avatar(username):
 
 
 def handle_avatar_change(username, avatar_name, client_socket):
-    """Handle avatar change request from a client."""
+    """Process and validate avatar change request from a client.
+
+    Verifies avatar exists in available avatars, updates server state,
+    and broadcasts the change to all connected clients.
+
+    Args:
+        username: Username of the client changing avatar
+        avatar_name: Name of the avatar file to switch to
+        client_socket: Socket of the requesting client
+    """
     available = list_available_avatars()
     if avatar_name not in available:
         try:
@@ -118,7 +127,16 @@ def handle_avatar_change(username, avatar_name, client_socket):
 
 
 def send_private(sender_socket, target_username, message):
-    """Send a private message to a specific user."""
+    """Send a private message to a specific user.
+
+    Routes a message from one client to another by finding the target socket
+    and sending the message. Notifies sender if target is not found.
+
+    Args:
+        sender_socket: Socket of the sending client
+        target_username: Username of the recipient
+        message: Message text to send
+    """
     with state.clients_lock:
         sender_name = state.clients.get(sender_socket, "unknown")
         target_socket = next(
@@ -145,7 +163,14 @@ def send_private(sender_socket, target_username, message):
 
 
 def disconnect_client(client_socket):
-    """Disconnect a client and clean up."""
+    """Disconnect a client and clean up all related resources.
+
+    Removes client from active connections, closes socket, cleans up avatar
+    data, and broadcasts disconnect notification to remaining clients.
+
+    Args:
+        client_socket: Socket of the client to disconnect
+    """
     with state.clients_lock:
         username = state.clients.pop(client_socket, None)
     try:
@@ -162,7 +187,16 @@ def disconnect_client(client_socket):
 
 
 def handle_json_message(client_socket, username, msg_obj):
-    """Handle incoming JSON messages from client."""
+    """Process incoming JSON messages from a connected client.
+
+    Routes different message types (CHAT, GAME_INVITE, GAME_MOVE, etc.) to
+    appropriate handlers. Manages peer-to-peer communication and game state.
+
+    Args:
+        client_socket: Socket of the sending client
+        username: Username of the client
+        msg_obj: Parsed JSON message object with 'type' and 'data' fields
+    """
     try:
         msg_type = msg_obj.get("type", "")
         data = msg_obj.get("data", {})
@@ -274,7 +308,15 @@ def handle_json_message(client_socket, username, msg_obj):
 
 
 def handle_client(client_socket, address):
-    """Handle a new client connection."""
+    """Handle a new client connection and manage client lifecycle.
+
+    Accepts client login, maintains connection, receives and routes messages,
+    and handles graceful disconnection with cleanup.
+
+    Args:
+        client_socket: Socket of the new client connection
+        address: Tuple (host, port) of the connecting client
+    """
     username = None
     try:
         username = client_socket.recv(1024).decode().strip()
@@ -302,6 +344,7 @@ def handle_client(client_socket, address):
         broadcast_avatars_to_client(client_socket)
         broadcast_new_user_avatar(username)
 
+        # Receive messages from client in a loop
         buffer = ""
         while True:
             data = client_socket.recv(1024)
@@ -309,6 +352,7 @@ def handle_client(client_socket, address):
                 break
             buffer += data.decode()
 
+            # Process complete messages (delimited by newline)
             while "\n" in buffer:
                 message, buffer = buffer.split("\n", 1)
                 message = message.strip()
@@ -329,9 +373,17 @@ def handle_client(client_socket, address):
 
 
 def discovery_broadcast_thread():
-    """Periodically broadcast server presence on the local network."""
+    """Continuously broadcast server presence on local network via UDP.
+
+    Sends JSON discovery messages at regular intervals to allow clients
+    to automatically detect and connect to the server.
+    """
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+    # Allow sharing port with client's listening socket
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    if hasattr(socket, 'SO_REUSEPORT'):
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
 
     while True:
         try:
@@ -343,8 +395,12 @@ def discovery_broadcast_thread():
 
 
 def server_thread():
-    """Main server thread."""
-    # Resolve server and discovery ports (with fallback if allowed)
+    """Main server thread - initialize and run TCP chat server.
+
+    Finds available ports for the server and discovery, creates a listening
+    socket, accepts client connections in a loop, and spawns handler threads.
+    """
+    # Initialize port configurations
     state.SERVER_PORT = find_available_port(
         PREFERRED_PORT, allow_fallback=SERVER_PORT_AUTO_FALLBACK)
     if state.SERVER_PORT is None:
@@ -367,37 +423,12 @@ def server_thread():
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server_socket.bind((SERVER_HOST, state.SERVER_PORT))
-
-    def server_thread():
-        """Main server thread."""
-        # Initialize port configurations
-        state.SERVER_PORT = find_available_port(
-            PREFERRED_PORT, allow_fallback=SERVER_PORT_AUTO_FALLBACK)
-        if state.SERVER_PORT is None:
-            log(
-                f"[ERROR] Could not find available port starting from {PREFERRED_PORT}")
-            return
-
-        state.DISCOVERY_PORT = find_available_discovery_port(
-            PREFERRED_DISCOVERY_PORT,
-            allow_fallback=DISCOVERY_PORT_AUTO_FALLBACK,
-        )
-        if state.DISCOVERY_PORT is None:
-            log(
-                f"[ERROR] Could not find available discovery port starting from {PREFERRED_DISCOVERY_PORT}")
-            return
-
-        state.DISCOVERY_MESSAGE = json.dumps(
-            {"type": "DISCOVERY", "data": {"port": state.SERVER_PORT}})
-
-        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        server_socket.bind((SERVER_HOST, state.SERVER_PORT))
     server_socket.listen()
 
     update_server_info_label()
     log(f"[*] Server listening on {SERVER_HOST}:{state.SERVER_PORT}")
 
+    # Accept client connections indefinitely
     while True:
         client_socket, address = server_socket.accept()
         threading.Thread(

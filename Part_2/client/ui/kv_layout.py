@@ -8,6 +8,17 @@ KV = """
             pos: self.pos
             size: self.size
 
+    # Server info label in top left corner
+    Label:
+        id: server_info_lbl
+        text: ""
+        font_size: "12sp"
+        color: 140/255., 154/255., 188/255., 0.8  # TEXT_HINT with transparency
+        size_hint: None, None
+        size: self.texture_size
+        pos: dp(10), root.height - self.height - dp(10)
+        halign: "left"
+
     # This RelativeLayout ensures the inner BoxLayout is always centered
     RelativeLayout:
         BoxLayout:

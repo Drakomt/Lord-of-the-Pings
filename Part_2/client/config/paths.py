@@ -1,3 +1,9 @@
+"""Asset path definitions for the Lord of the Pings client.
+
+Provides centralized access to asset directories for avatars, icons,
+and other resources relative to the package root.
+"""
+
 from pathlib import Path
 
 # Base directories relative to this package

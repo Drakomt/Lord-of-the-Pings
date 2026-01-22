@@ -1,3 +1,10 @@
+"""Main chat screen for Lord of the Pings client.
+
+Manages the central hub after login, displaying online users, chat rooms,
+game records, and handling navigation between screens. Routes incoming
+messages and manages the client-side socket connection.
+"""
+
 import threading
 from pathlib import Path
 

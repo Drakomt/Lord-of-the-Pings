@@ -1,3 +1,9 @@
+"""Login screen for Lord of the Pings application.
+
+Handles server discovery, connection, and user authentication. Performs
+server connectivity checks and manages the initial connection flow.
+"""
+
 import socket
 import threading
 from datetime import datetime
@@ -20,35 +26,48 @@ from client.core.protocol import parse_json_message
 
 
 class LoginScreen(Screen):
-    """Initial screen that handles discovery, ping, and login."""
+    """Initial login screen handling discovery, connectivity, and authentication.
+
+    Performs periodic server availability checks and manages user login flow
+    including connection establishment and initial message buffering.
+    """
 
     can_login = BooleanProperty(False)
 
     def on_enter(self):
+        """Initialize login screen and start server connectivity checks."""
         threading.Thread(target=self.perform_ping, daemon=True).start()
         Clock.schedule_interval(self.check_status, 1)
         Clock.schedule_once(lambda dt: setattr(
             self.ids.username_input, "focus", True), 0.2)
 
     def on_leave(self):
+        """Clean up scheduled tasks when leaving login screen."""
         Clock.unschedule(self.check_status)
 
     def check_status(self, _dt):
+        """Periodically check server status."""
         threading.Thread(target=self.perform_ping, daemon=True).start()
 
     def perform_ping(self):
+        """Check if server is online and update UI."""
         online = server_online()
         Clock.schedule_once(lambda dt: self.update_label(online))
 
     def update_label(self, online):
+        """Update server status label based on connectivity."""
         if online:
             self.ids.server_status_lbl.text = "ONLINE"
             self.ids.server_status_lbl.color = OWN_COLOR
             self.can_login = True
+            # Update server info label with IP and port
+            if state.HOST and state.SERVER_PORT:
+                self.ids.server_info_lbl.text = f"Server: {state.HOST}:{state.SERVER_PORT}"
         else:
             self.ids.server_status_lbl.text = "OFFLINE"
             self.ids.server_status_lbl.color = ALERT_COLOR
             self.can_login = False
+            self.ids.server_info_lbl.text = ""
 
     def show_server_offline_popup(self):
         content = BoxLayout(orientation="vertical", spacing=15, padding=20)
@@ -155,6 +174,14 @@ class LoginScreen(Screen):
                 focus=clear_error_on_focus)
 
     def login(self, username):
+        """Establish connection to server and authenticate user.
+
+        Validates username input, connects to server, sends login,
+        and handles username conflicts. Initializes main screen on success.
+
+        Args:
+            username: Username to login with
+        """
         if not username.strip():
             self.ids.error_label.text = "Please enter a username"
             return
@@ -168,10 +195,13 @@ class LoginScreen(Screen):
         app = App.get_running_app()
         prebuffer = b""
         try:
+            # Connect to server and send username
             app.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             app.sock.connect((state.HOST, state.SERVER_PORT))
             app.sock.sendall(username.encode())
             app.sock.settimeout(0.4)
+
+            # Receive initial messages (user list, avatars)
             chunks = []
             while True:
                 try:
@@ -183,11 +213,12 @@ class LoginScreen(Screen):
                     break
             prebuffer = b"".join(chunks)
             app.sock.settimeout(None)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             self.show_server_offline_popup()
             print("Connection error:", exc)
             return
 
+        # Check for username conflict
         if prebuffer:
             premsg = prebuffer.decode(errors="ignore").strip()
             if "Username already taken" in premsg:
@@ -199,11 +230,13 @@ class LoginScreen(Screen):
                 self.show_username_taken_popup()
                 return
 
+        # Initialize main screen with connection and user data
         main = self.manager.get_screen("main")
         main.reset_chat_data()
         main.username = username
         main.sock = app.sock
 
+        # Parse initial messages from server
         userlist_names = []
         if prebuffer:
             buffer_str = premsg
@@ -235,5 +268,6 @@ class LoginScreen(Screen):
             Clock.schedule_once(lambda dt: main.update_user_buttons([]), 0.1)
 
         stop_discovery()
+        # Start background thread to listen for incoming messages
         threading.Thread(target=main.listen_to_server, daemon=True).start()
         self.manager.current = "main"

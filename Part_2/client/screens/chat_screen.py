@@ -1,3 +1,10 @@
+"""Chat screen for Lord of the Pings client.
+
+Manages display and sending of messages (general chat or private messages),
+game invitations, system notifications, and tic-tac-toe gameplay within
+conversation context. Handles message rendering with avatars and timestamps.
+"""
+
 import random
 from datetime import datetime
 
@@ -20,11 +27,16 @@ from kivy.uix.image import Image
 
 
 class ChatScreen(Screen):
-    """Screen for displaying and managing chat conversations."""
+    """Individual chat room display for private or general conversations.
+
+    Renders message history with user avatars, handles message input/sending,
+    manages game invitations, and displays game statistics for private chats.
+    """
 
     invite_stats_text = StringProperty("")
 
     def __init__(self, **kwargs):
+        """Initialize chat screen with empty state."""
         super().__init__(**kwargs)
         self.chat_id = None
         self.main_screen = None
@@ -33,6 +45,12 @@ class ChatScreen(Screen):
         self.losses = 0
 
     def load_chat(self, chat_id, main_screen):
+        """Load and display a specific chat room.
+
+        Args:
+            chat_id: ID of the chat ("general" or username for private)
+            main_screen: Reference to the main screen for context
+        """
         self.chat_id = chat_id
         self.main_screen = main_screen
         self.has_pending_invite = False
@@ -75,6 +93,7 @@ class ChatScreen(Screen):
             self.ids.message_input, "focus", True), 0.1)
 
     def refresh_messages(self):
+        """Reload and display all messages for the current chat."""
         box = self.ids.chat_box
         box.clear_widgets()
 
@@ -105,7 +124,7 @@ class ChatScreen(Screen):
         Clock.schedule_once(lambda dt: self.scroll_to_bottom(), 0.05)
 
     def update_invite_stats(self):
-        """Refresh the invite W/L indicator for this chat."""
+        """Refresh the win/loss display for this private chat."""
         if not self.main_screen or self.chat_id == "general":
             self.invite_stats_text = ""
             return
@@ -243,7 +262,14 @@ class ChatScreen(Screen):
         self.ids.chat_box.add_widget(container)
 
     def add_system_message(self, text):
-        """Add a centered system message."""
+        """Add a centered system notification message to the chat.
+
+        System messages are used for join/leave notifications and other
+        server-initiated messages. Styled differently from regular chat.
+
+        Args:
+            text: Message text to display
+        """
         time_str = datetime.now().strftime("%H:%M")
 
         container = BoxLayout(size_hint_y=None, height=dp(
@@ -315,6 +341,11 @@ class ChatScreen(Screen):
         self.ids.chat_box.add_widget(container)
 
     def send_message(self, text):
+        """Send a message to the chat (local and remote).
+
+        Args:
+            text: Message content to send
+        """
         if not text.strip():
             return
         self.ids.message_input.text = ""
@@ -348,7 +379,12 @@ class ChatScreen(Screen):
             self.ids.message_input, "focus", True), 0.1)
 
     def add_game_invite_button(self, opponent_name, inviter_name):
-        """Add a clickable game invite button to the chat."""
+        """Add a clickable game invite button to the chat.
+
+        Args:
+            opponent_name: Username to invite for a game
+            inviter_name: Display name of the inviter
+        """
         container = BoxLayout(size_hint_y=None, height=dp(
             60), padding=dp(10), spacing=dp(10))
 
@@ -387,10 +423,12 @@ class ChatScreen(Screen):
         Clock.schedule_once(lambda dt: self.scroll_to_bottom(), 0.05)
 
     def scroll_to_bottom(self):
+        """Scroll to the bottom of the chat message list."""
         if self.ids.chat_box.height > self.ids.chat_scroll.height:
             self.ids.chat_scroll.scroll_y = 0
 
     def go_back(self):
+        """Navigate back to the main chat list screen."""
         self.manager.current = "main"
 
     def send_game_invite(self):
@@ -421,7 +459,11 @@ class ChatScreen(Screen):
             self.main_screen.on_disconnected()
 
     def accept_game_invite(self, opponent):
-        """Accept a game invite and navigate to game screen."""
+        """Accept a game invite and start the game.
+
+        Args:
+            opponent: Username of the opponent who sent the invite
+        """
         acceptor_symbol = random.choice(["X", "O"])
 
         try:

@@ -1,3 +1,9 @@
+"""Client application entry point for Lord of the Pings chat application.
+
+This module initializes the Kivy application, sets up the screen manager with
+all available screens (login, main, chat, game), and starts server discovery.
+"""
+
 import socket
 import threading
 import sys
@@ -26,32 +32,37 @@ from client.widgets.user_bubble import UserBubbleWidget
 
 
 def main():
-    """Main entry point for the chat application."""
+    """Initialize and run the Lord of the Pings chat application.
+
+    Sets up the Kivy application with UI resources, configures all screens
+    (login, main, chat, game), and starts background server discovery.
+    """
 
     class ChatApp(App):
         def build(self):
+            """Build the application UI and initialize screens."""
             self.title = "Lord of the Pings"
             icon_path = Path(__file__).parent / "assets" / \
                 "icons" / "Lotp_Icon_BP.ico"
             self.icon = str(icon_path)
 
-            # Make assets available regardless of current working directory
+            # Register asset directories with Kivy resource loader
             client_root = Path(__file__).parent
             assets_root = client_root / "assets"
             resource_add_path(str(client_root))
             resource_add_path(str(assets_root))
 
-            # Load KV layout
+            # Load KV layout from string
             Builder.load_string(KV)
 
-            # Create screen manager and add screens
+            # Create screen manager and register all application screens
             sm = ScreenManager()
             sm.add_widget(LoginScreen(name="login"))
             sm.add_widget(MainScreen(name="main"))
             sm.add_widget(ChatScreen(name="chat"))
             sm.add_widget(GameScreen(name="game"))
 
-            # Start server discovery
+            # Start background server discovery thread
             start_discovery()
 
             return sm

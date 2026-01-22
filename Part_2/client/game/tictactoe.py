@@ -1,3 +1,9 @@
+"""Tic-Tac-Toe game implementation for Lord of the Pings.
+
+Contains game logic (TicTacToeGame class) and the game UI screen (GameScreen).
+Handles game state, move validation, win conditions, and networked gameplay.
+"""
+
 import random
 
 from kivy.clock import Clock
@@ -18,9 +24,14 @@ from client.widgets.styled_button import StyledButton
 
 
 class TicTacToeGame:
-    """Tic-Tac-Toe game logic and state."""
+    """Core Tic-Tac-Toe game logic.
+
+    Manages board state, move validation, current player tracking, and win detection.
+    Board is represented as a list of 9 cells (3x3 grid), indexed 0-8.
+    """
 
     def __init__(self):
+        """Initialize game with empty board and default state."""
         self.board = [None] * 9
         self.current_player = "X"
         self.game_over = False
@@ -28,11 +39,19 @@ class TicTacToeGame:
         self.move_count = 0
 
     def is_valid_move(self, cell):
-        """Check if a move is valid."""
+        """Check if a move is valid for the given cell."""
         return 0 <= cell < 9 and self.board[cell] is None
 
     def make_move(self, cell, player):
-        """Make a move. Returns True if successful."""
+        """Make a move on the board.
+
+        Args:
+            cell: Cell index (0-8) to place move
+            player: Player symbol ("X" or "O")
+
+        Returns:
+            True if move was successful, False otherwise
+        """
         if not self.is_valid_move(cell):
             return False
         self.board[cell] = player
@@ -40,7 +59,11 @@ class TicTacToeGame:
         return True
 
     def get_winner(self):
-        """Check if there's a winner. Returns 'X', 'O', 'DRAW', or None."""
+        """Determine game state.
+
+        Returns:
+            "X" if X wins, "O" if O wins, "DRAW" if board full, None if ongoing
+        """
         winning_combos = [
             [0, 1, 2],
             [3, 4, 5],
@@ -63,7 +86,7 @@ class TicTacToeGame:
         return None
 
     def reset(self):
-        """Reset the game."""
+        """Reset the game to initial state."""
         self.board = [None] * 9
         self.current_player = "X"
         self.game_over = False
@@ -72,12 +95,17 @@ class TicTacToeGame:
 
 
 class GameScreen(Screen):
-    """Tic-Tac-Toe game screen."""
+    """Tic-Tac-Toe game display and controller.
+
+    Manages the game UI, player interaction, move handling, and communication
+    with opponent. Synchronizes game state with chat partner over network.
+    """
 
     cell_size = NumericProperty(dp(80))
     grid_size = NumericProperty(dp(258))
 
     def __init__(self, **kwargs):
+        """Initialize game screen with default state."""
         super().__init__(**kwargs)
         self.game = TicTacToeGame()
         self.player_name = ""
@@ -98,7 +126,16 @@ class GameScreen(Screen):
         self.setup_board()
 
     def setup_game(self, player_name, opponent_name, chat_screen, score_holder=None, initial_player="X", randomize_start=False):
-        """Setup the game with player info."""
+        """Configure game with player information.
+
+        Args:
+            player_name: Name of the local player
+            opponent_name: Name of the opponent
+            chat_screen: Reference to chat screen for communication
+            score_holder: Object to track win/loss statistics
+            initial_player: Symbol of starting player ("X" or "O")
+            randomize_start: If True, randomly choose starting player
+        """
         self.player_name = player_name
         self.opponent_name = opponent_name
         self.chat_screen = chat_screen

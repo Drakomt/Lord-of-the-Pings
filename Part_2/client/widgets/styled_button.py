@@ -1,3 +1,9 @@
+"""Custom button widget with styling support for Lord of the Pings UI.
+
+Provides a reusable button component supporting text, icons, or combined
+display modes with customizable colors and rounded corners.
+"""
+
 from kivy.graphics import Color, Line, RoundedRectangle
 from kivy.metrics import dp
 from kivy.properties import StringProperty
@@ -12,7 +18,11 @@ from client.config.constants import DARK_BG2, OTHER_COLOR, TEXT_PRIMARY
 
 
 class StyledButton(ButtonBehavior, FloatLayout):
-    """Custom button widget with rounded corners and optional icon."""
+    """Custom button widget with rounded corners and optional icon.
+
+    Supports multiple display modes: text-only, icon-only, or combined icon+text.
+    Colors are customizable and update dynamically with property changes.
+    """
 
     text = StringProperty("")
     image_source = StringProperty("")
@@ -22,6 +32,7 @@ class StyledButton(ButtonBehavior, FloatLayout):
     background_color = kivy.properties.ListProperty(DARK_BG2)
 
     def __init__(self, **kwargs):
+        """Initialize the styled button with graphics and event bindings."""
         super().__init__(**kwargs)
         self.content_widget = None
 

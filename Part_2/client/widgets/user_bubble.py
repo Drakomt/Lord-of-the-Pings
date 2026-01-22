@@ -1,3 +1,9 @@
+"""User profile bubble widget for displaying current user and avatar.
+
+Shows the current user's username and avatar in a styled bubble component
+typically displayed in chat or game screens.
+"""
+
 from kivy.graphics import Color, Line, RoundedRectangle
 from kivy.metrics import dp
 from kivy.uix.boxlayout import BoxLayout
@@ -9,9 +15,19 @@ from client.config.constants import INPUT_BG, OTHER_COLOR, TEXT_HINT, TEXT_PRIMA
 
 
 class UserBubbleWidget(BoxLayout):
-    """Styled bubble showing the current user and avatar."""
+    """Styled bubble showing the current user and avatar.
+
+    Displays username and associated avatar in a rounded container.
+    Can be interactive with a callback when pressed.
+    """
 
     def __init__(self, username="", avatar_source=None, **kwargs):
+        """Initialize the user bubble.
+
+        Args:
+            username: Display name of the user
+            avatar_source: Path to avatar image file, or None
+        """
         if "size_hint" not in kwargs:
             kwargs["size_hint"] = (None, 1)
         if "height" not in kwargs:

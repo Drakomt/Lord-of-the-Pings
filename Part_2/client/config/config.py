@@ -1,21 +1,27 @@
+"""Client configuration for Lord of the Pings.
+
+Loads environment variables and sets discovery/connection parameters for
+locating the server on the local network or via explicit configuration.
+"""
+
 import os
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# Discovery configuration
+# UDP Discovery configuration
 DISCOVERY_PORT = 9001
+# Number of ports to listen on
+DISCOVERY_PORT_COUNT = int(os.environ.get("DISCOVERY_PORT_COUNT", "5"))
 DISCOVERY_TIMEOUT = 10
 DISCOVERY_PREFIX = "LOTP_SERVER|"
-DISCOVERY_RETRY_INTERVAL = int(os.environ.get("DISCOVERY_RETRY_INTERVAL", "3"))
-DISCOVERY_FORCE_TIMEOUT = int(os.environ.get("DISCOVERY_FORCE_TIMEOUT", "20"))
+DISCOVERY_RETRY_INTERVAL = int(os.environ.get("DISCOVERY_RETRY_INTERVAL", "2"))
 
-# Server configuration and overrides
+# Server connection configuration with environment variable overrides
 ENV_HOST = os.environ.get("HOST")
-ENV_PORT = os.environ.get("SERVER_PORT")
-USE_ENV_OVERRIDE = ENV_HOST is not None and ENV_PORT is not None
-LOCALHOST_FALLBACK = os.environ.get(
-    "LOCALHOST_FALLBACK", "true").lower() == "true"
+# Default to 9000 if not specified
+ENV_PORT = os.environ.get("SERVER_PORT", "9000")
+USE_ENV_OVERRIDE = ENV_HOST is not None  # Use env override if HOST is set
 
-# Tic-Tac-Toe defaults
+# Tic-Tac-Toe default server port
 DEFAULT_SERVER_PORT = int(os.environ.get("SERVER_PORT", "9000"))

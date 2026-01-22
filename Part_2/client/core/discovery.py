@@ -18,46 +18,26 @@ from client.core.protocol import parse_json_message
 def try_broadcast_discovery():
     """Discover server via UDP broadcast with JSON protocol.
 
-    Listens for DISCOVERY messages on multiple ports in parallel to handle
-    cases where the preferred port is occupied by another application.
+    Listens for DISCOVERY messages on a single UDP port shared by all peers.
 
     Returns:
         Tuple of (server_ip, server_port) if found, None otherwise
     """
-    # Try listening on multiple ports (configurable via DISCOVERY_PORT_COUNT)
-    ports_to_try = [
-        config.DISCOVERY_PORT + i for i in range(config.DISCOVERY_PORT_COUNT)
-    ]
-
-    sockets = []
-
-    # Create listening sockets on all available ports
-    for port in ports_to_try:
-        try:
-            sock = socket.socket(
-                socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-            # Allow multiple sockets to bind same port for broadcasts
-            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            if hasattr(socket, 'SO_REUSEPORT'):
-                sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-            sock.bind(("", port))
-            sock.setblocking(False)  # Non-blocking for select()
-            sockets.append(sock)
-        except OSError:
-            # Port truly occupied by another app without SO_REUSEPORT, skip it
-            pass
-
-    if not sockets:
+    try:
+        sock = socket.socket(
+            socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind(("", config.DISCOVERY_PORT))
+        sock.setblocking(False)
+    except OSError:
         return None
 
-    # Listen on all sockets in parallel (short timeout for responsive checking)
     start_time = time.time()
 
     while time.time() - start_time < config.DISCOVERY_TIMEOUT:
-        # Wait for data on any socket (0.5 second timeout per iteration)
-        readable, _, _ = select.select(sockets, [], [], 0.5)
+        readable, _, _ = select.select([sock], [], [], 0.5)
 
-        for sock in readable:
+        if sock in readable:
             try:
                 data, addr = sock.recvfrom(1024)
                 message = data.decode()
@@ -65,22 +45,15 @@ def try_broadcast_discovery():
                 if parsed and parsed.get("type") == "DISCOVERY":
                     port = parsed.get("data", {}).get("port")
                     if port:
-                        # Clean up all sockets
-                        for s in sockets:
-                            try:
-                                s.close()
-                            except Exception:
-                                pass
+                        sock.close()
                         return addr[0], port
             except Exception:
                 pass
 
-    # Clean up all sockets
-    for sock in sockets:
-        try:
-            sock.close()
-        except Exception:
-            pass
+    try:
+        sock.close()
+    except Exception:
+        pass
 
     return None
 
@@ -109,6 +82,10 @@ def find_server():
     Returns:
         Tuple of (server_ip, server_port) if found, None otherwise
     """
+    # Manual override takes highest precedence
+    if state.manual_override_mode:
+        return state.manual_override_ip, state.manual_override_port
+
     if config.USE_ENV_OVERRIDE:
         return config.ENV_HOST, int(config.ENV_PORT)
     return try_broadcast_discovery()
@@ -118,12 +95,19 @@ def start_discovery():
     """Start server discovery in a background thread.
 
     Tries to find the server via UDP broadcast or environment override.
-    If using ENV override, sets that immediately. Otherwise, searches network.
+    If using ENV override or manual override, sets that immediately. Otherwise, searches network.
     """
 
     def worker():
         """Background worker thread for server discovery."""
         while not state.discovery_thread_stop:
+            # Manual override takes highest precedence (skip discovery entirely)
+            if state.manual_override_mode:
+                state.HOST = state.manual_override_ip
+                state.SERVER_PORT = state.manual_override_port
+                state.DISCOVERED = True
+                break
+
             # Try to discover (env override wins, otherwise broadcast)
             if config.USE_ENV_OVERRIDE:
                 state.HOST = config.ENV_HOST

@@ -11,6 +11,11 @@ user_avatars = {}
 HOST = None
 SERVER_PORT = None
 
+# Manual override state (takes precedence over discovery and env)
+manual_override_mode = False
+manual_override_ip = None
+manual_override_port = None
+
 # Discovery state tracking
 DISCOVERED = False
 DISCOVERY_START_TIME = None

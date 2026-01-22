@@ -19,6 +19,14 @@ KV = """
         pos: dp(10), root.height - self.height - dp(10)
         halign: "left"
 
+    # Manual override button in top right corner
+    StyledButton:
+        size_hint: None, None
+        size: dp(40), dp(40)
+        pos: root.width - self.width - dp(10), root.height - self.height - dp(10)
+        image_source: "assets/icons/cogwheel.png"
+        on_press: root.show_manual_override_popup()
+
     # This RelativeLayout ensures the inner BoxLayout is always centered
     RelativeLayout:
         BoxLayout:

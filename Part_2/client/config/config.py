@@ -10,9 +10,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # UDP Discovery configuration
-DISCOVERY_PORT = 9001
-# Number of ports to listen on
-DISCOVERY_PORT_COUNT = int(os.environ.get("DISCOVERY_PORT_COUNT", "5"))
+DISCOVERY_PORT = int(os.environ.get("DISCOVERY_PORT", "9001"))
 DISCOVERY_TIMEOUT = 10
 DISCOVERY_PREFIX = "LOTP_SERVER|"
 DISCOVERY_RETRY_INTERVAL = int(os.environ.get("DISCOVERY_RETRY_INTERVAL", "2"))

@@ -56,11 +56,7 @@ SERVER_PORT_AUTO_FALLBACK = os.environ.get(
     "SERVER_PORT_AUTO_FALLBACK", "true").lower() == "true"
 
 # ====== DISCOVERY CONFIG ======
-PREFERRED_DISCOVERY_PORT = int(os.environ.get("DISCOVERY_PORT", 9001))
-DISCOVERY_PORT_AUTO_FALLBACK = os.environ.get(
-    "DISCOVERY_PORT_AUTO_FALLBACK", "true").lower() == "true"
-
-DISCOVERY_PORT = None
+DISCOVERY_PORT = int(os.environ.get("DISCOVERY_PORT", 9001))
 DISCOVERY_INTERVAL = 2  # seconds
 DISCOVERY_MESSAGE = None
 # =============================
@@ -97,34 +93,6 @@ def find_available_port(start_port, max_attempts=50, allow_fallback=True):
             return start_port
         except OSError:
             return None
-
-
-def find_available_discovery_port(start_port=9001, max_attempts=50, allow_fallback=True):
-    """
-    Find an available UDP port for discovery broadcasts.
-    If allow_fallback is False, only tries the exact start_port (no increment).
-    """
-    if allow_fallback:
-        # Try incrementing ports if needed
-        for port in range(start_port, start_port + max_attempts):
-            try:
-                test_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-                test_socket.bind(("", port))
-                test_socket.close()
-                return port
-            except OSError:
-                continue
-    else:
-        # Only try the exact port (manual override from env)
-        try:
-            test_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            test_socket.bind(("", start_port))
-            test_socket.close()
-            return start_port
-        except OSError:
-            return None
-
-    return None
 
 
 clients = {}        # socket -> username
@@ -453,20 +421,6 @@ def server_thread():
     if SERVER_PORT is None:
         log(
             f"[ERROR] Could not find available port starting from {PREFERRED_PORT}")
-        return
-
-    # Find available port for discovery (respects env variable override)
-    DISCOVERY_PORT = find_available_discovery_port(
-        PREFERRED_DISCOVERY_PORT,
-        allow_fallback=DISCOVERY_PORT_AUTO_FALLBACK
-    )
-    if DISCOVERY_PORT is None:
-        if not DISCOVERY_PORT_AUTO_FALLBACK:
-            log(
-                f"[ERROR] Discovery port {PREFERRED_DISCOVERY_PORT} (from env) is in use and no fallback allowed")
-        else:
-            log(
-                f"[ERROR] Could not find available discovery port starting from {PREFERRED_DISCOVERY_PORT}")
         return
 
     # Set the discovery message now that we know the ports (JSON format)

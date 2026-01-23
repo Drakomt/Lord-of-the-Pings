@@ -36,6 +36,19 @@ from server.core.protocol import broadcast_json, parse_json_message, send_json_m
 from server.core import state
 
 
+def get_local_ip():
+    """Resolve a best-effort local IP used for outbound traffic."""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("8.8.8.8", 80))
+            return s.getsockname()[0]
+    except Exception:
+        try:
+            return socket.gethostbyname(socket.gethostname())
+        except Exception:
+            return "127.0.0.1"
+
+
 def update_user_list():
     """Update the displayed user list in the GUI."""
     for widget in users_list.winfo_children():
@@ -60,6 +73,7 @@ def update_server_info_label():
     server_port_label.configure(text=f"Server Port: {state.SERVER_PORT}")
     discovery_port_label.configure(
         text=f"Discovery Port: {state.DISCOVERY_PORT}")
+    broadcast_ip_label.configure(text=f"Discovery IP: {state.BROADCAST_IP}")
 
 
 def log(text):
@@ -417,8 +431,9 @@ def server_thread():
             f"[ERROR] Could not find available discovery port starting from {PREFERRED_DISCOVERY_PORT}")
         return
 
+    state.BROADCAST_IP = get_local_ip()
     state.DISCOVERY_MESSAGE = json.dumps(
-        {"type": "DISCOVERY", "data": {"port": state.SERVER_PORT}})
+        {"type": "DISCOVERY", "data": {"port": state.SERVER_PORT, "ip": state.BROADCAST_IP}})
 
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -445,7 +460,7 @@ ctk.set_default_color_theme("blue")
 
 app = ctk.CTk()
 app.title("Lotp Server")
-app.geometry("600x420")
+app.geometry("700x420")
 app.configure(fg_color=BACKGROUND_COLOR)
 
 # Set window icon
@@ -464,7 +479,6 @@ frame_top.pack(fill="x", padx=10, pady=(10, 5))
 server_host_frame = ctk.CTkFrame(
     frame_top, fg_color=OTHER_COLOR, corner_radius=8, border_color=ACCENT_COLOR, border_width=1
 )
-server_host_frame.pack(side="left", padx=5, pady=10, fill="x", expand=True)
 server_host_label = ctk.CTkLabel(
     server_host_frame, text="", font=("Arial", 11, "bold"), text_color=TEXT_COLOR, fg_color=OTHER_COLOR
 )
@@ -473,7 +487,6 @@ server_host_label.pack(padx=10, pady=10)
 server_port_frame = ctk.CTkFrame(
     frame_top, fg_color=OTHER_COLOR, corner_radius=8, border_color=ACCENT_COLOR, border_width=1
 )
-server_port_frame.pack(side="left", padx=5, pady=10, fill="x", expand=True)
 server_port_label = ctk.CTkLabel(
     server_port_frame, text="", font=("Arial", 11, "bold"), text_color=TEXT_COLOR, fg_color=OTHER_COLOR
 )
@@ -482,20 +495,59 @@ server_port_label.pack(padx=10, pady=10)
 discovery_port_frame = ctk.CTkFrame(
     frame_top, fg_color=OTHER_COLOR, corner_radius=8, border_color=ACCENT_COLOR, border_width=1
 )
-discovery_port_frame.pack(side="left", padx=5, pady=10, fill="x", expand=True)
 discovery_port_label = ctk.CTkLabel(
     discovery_port_frame, text="", font=("Arial", 11, "bold"), text_color=TEXT_COLOR, fg_color=OTHER_COLOR
 )
 discovery_port_label.pack(padx=10, pady=10)
 
+broadcast_ip_frame = ctk.CTkFrame(
+    frame_top, fg_color=OTHER_COLOR, corner_radius=8, border_color=ACCENT_COLOR, border_width=1
+)
+broadcast_ip_label = ctk.CTkLabel(
+    broadcast_ip_frame, text="", font=("Arial", 11, "bold"), text_color=TEXT_COLOR, fg_color=OTHER_COLOR
+)
+broadcast_ip_label.pack(padx=10, pady=10)
+
+# Arrange the four bubbles in two rows: host | discovery IP on top, server port | discovery port below.
+info_frames = [
+    server_host_frame,
+    broadcast_ip_frame,
+    server_port_frame,
+    discovery_port_frame,
+]
+
+
+def layout_info_bubbles(event=None):
+    width = frame_top.winfo_width() or app.winfo_width()
+    cols = 2 if width >= 420 else 1  # keep 2x2 normally; stack if extremely narrow
+    for child in frame_top.grid_slaves():
+        child.grid_forget()
+    frame_top.grid_columnconfigure(
+        tuple(range(cols)), weight=1, uniform="cols")
+    frame_top.grid_rowconfigure((0, 1, 2, 3), weight=1)
+    for idx, frame in enumerate(info_frames):
+        row = idx // cols
+        col = idx % cols
+        frame.grid(row=row, column=col, padx=5, pady=5, sticky="nsew")
+
+
+frame_top.bind("<Configure>", layout_info_bubbles)
+layout_info_bubbles()
+
 # Layout
-frame_left = ctk.CTkFrame(app, width=200, corner_radius=15,
+body_frame = ctk.CTkFrame(app, fg_color=BACKGROUND_COLOR, border_width=0)
+body_frame.pack(fill="both", expand=True, padx=10, pady=10)
+body_frame.grid_columnconfigure(0, weight=1, minsize=180)
+body_frame.grid_columnconfigure(1, weight=2)
+body_frame.grid_rowconfigure(0, weight=1)
+
+frame_left = ctk.CTkFrame(body_frame, corner_radius=15,
                           fg_color=OTHER_COLOR, border_color=ACCENT_COLOR, border_width=1)
-frame_left.pack(side="left", fill="y", padx=10, pady=10)
+frame_left.grid(row=0, column=0, sticky="nsew", padx=(0, 8), pady=0)
 
 frame_right = ctk.CTkFrame(
-    app, corner_radius=15, fg_color=OTHER_COLOR, border_color=ACCENT_COLOR, border_width=1)
-frame_right.pack(side="right", fill="both", expand=True, padx=10, pady=10)
+    body_frame, corner_radius=15, fg_color=OTHER_COLOR, border_color=ACCENT_COLOR, border_width=1)
+frame_right.grid(row=0, column=1, sticky="nsew", padx=(8, 0), pady=0)
 
 # Online Users
 label_users = ctk.CTkLabel(frame_left, text="Online Users", font=(

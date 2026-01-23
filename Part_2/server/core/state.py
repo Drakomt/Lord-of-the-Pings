@@ -17,3 +17,4 @@ user_avatars = {}
 SERVER_PORT = None
 DISCOVERY_PORT = None
 DISCOVERY_MESSAGE = None
+BROADCAST_IP = None

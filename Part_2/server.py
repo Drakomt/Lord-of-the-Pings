@@ -56,11 +56,7 @@ SERVER_PORT_AUTO_FALLBACK = os.environ.get(
     "SERVER_PORT_AUTO_FALLBACK", "true").lower() == "true"
 
 # ====== DISCOVERY CONFIG ======
-PREFERRED_DISCOVERY_PORT = int(os.environ.get("DISCOVERY_PORT", 9001))
-DISCOVERY_PORT_AUTO_FALLBACK = os.environ.get(
-    "DISCOVERY_PORT_AUTO_FALLBACK", "true").lower() == "true"
-
-DISCOVERY_PORT = None
+DISCOVERY_PORT = int(os.environ.get("DISCOVERY_PORT", 9001))
 DISCOVERY_INTERVAL = 2  # seconds
 DISCOVERY_MESSAGE = None
 # =============================
@@ -97,34 +93,6 @@ def find_available_port(start_port, max_attempts=50, allow_fallback=True):
             return start_port
         except OSError:
             return None
-
-
-def find_available_discovery_port(start_port=9001, max_attempts=50, allow_fallback=True):
-    """
-    Find an available UDP port for discovery broadcasts.
-    If allow_fallback is False, only tries the exact start_port (no increment).
-    """
-    if allow_fallback:
-        # Try incrementing ports if needed
-        for port in range(start_port, start_port + max_attempts):
-            try:
-                test_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-                test_socket.bind(("", port))
-                test_socket.close()
-                return port
-            except OSError:
-                continue
-    else:
-        # Only try the exact port (manual override from env)
-        try:
-            test_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            test_socket.bind(("", start_port))
-            test_socket.close()
-            return start_port
-        except OSError:
-            return None
-
-    return None
 
 
 clients = {}        # socket -> username
@@ -455,20 +423,6 @@ def server_thread():
             f"[ERROR] Could not find available port starting from {PREFERRED_PORT}")
         return
 
-    # Find available port for discovery (respects env variable override)
-    DISCOVERY_PORT = find_available_discovery_port(
-        PREFERRED_DISCOVERY_PORT,
-        allow_fallback=DISCOVERY_PORT_AUTO_FALLBACK
-    )
-    if DISCOVERY_PORT is None:
-        if not DISCOVERY_PORT_AUTO_FALLBACK:
-            log(
-                f"[ERROR] Discovery port {PREFERRED_DISCOVERY_PORT} (from env) is in use and no fallback allowed")
-        else:
-            log(
-                f"[ERROR] Could not find available discovery port starting from {PREFERRED_DISCOVERY_PORT}")
-        return
-
     # Set the discovery message now that we know the ports (JSON format)
     DISCOVERY_MESSAGE = json.dumps(
         {"type": "DISCOVERY", "data": {"port": SERVER_PORT}})
@@ -478,8 +432,7 @@ def server_thread():
     server_socket.bind((SERVER_HOST, SERVER_PORT))
     server_socket.listen()
 
-    log(f"Server port: {SERVER_PORT}")
-    log(f"Discovery port: {DISCOVERY_PORT}")
+    update_server_info_label()
     log(f"[*] Server listening on {SERVER_HOST}:{SERVER_PORT}")
 
     while True:
@@ -503,6 +456,32 @@ app.configure(fg_color=BACKGROUND_COLOR)
 icon_path = os.path.join(os.path.dirname(
     os.path.abspath(__file__)), "assets/icons/Lotp_Icon_BP.ico")
 app.iconbitmap(icon_path)
+
+# ----- Server Info Labels -----
+frame_top = ctk.CTkFrame(app, corner_radius=15,
+                         fg_color=BACKGROUND_COLOR, border_width=0)
+frame_top.pack(fill="x", padx=10, pady=(10, 5))
+
+server_host_frame = ctk.CTkFrame(
+    frame_top, fg_color=OTHER_COLOR, corner_radius=8, border_color=ACCENT_COLOR, border_width=1)
+server_host_frame.pack(side="left", padx=5, pady=10, fill="x", expand=True)
+server_host_label = ctk.CTkLabel(server_host_frame, text="", font=("Arial", 11, "bold"), text_color=TEXT_COLOR,
+                                 fg_color=OTHER_COLOR)
+server_host_label.pack(padx=10, pady=10)
+
+server_port_frame = ctk.CTkFrame(
+    frame_top, fg_color=OTHER_COLOR, corner_radius=8, border_color=ACCENT_COLOR, border_width=1)
+server_port_frame.pack(side="left", padx=5, pady=10, fill="x", expand=True)
+server_port_label = ctk.CTkLabel(server_port_frame, text="", font=("Arial", 11, "bold"), text_color=TEXT_COLOR,
+                                 fg_color=OTHER_COLOR)
+server_port_label.pack(padx=10, pady=10)
+
+discovery_port_frame = ctk.CTkFrame(
+    frame_top, fg_color=OTHER_COLOR, corner_radius=8, border_color=ACCENT_COLOR, border_width=1)
+discovery_port_frame.pack(side="left", padx=5, pady=10, fill="x", expand=True)
+discovery_port_label = ctk.CTkLabel(discovery_port_frame, text="", font=("Arial", 11, "bold"), text_color=TEXT_COLOR,
+                                    fg_color=OTHER_COLOR)
+discovery_port_label.pack(padx=10, pady=10)
 
 # ----- Layout -----
 frame_left = ctk.CTkFrame(app, width=200, corner_radius=15,
@@ -546,6 +525,13 @@ def log(text):
     log_box.insert("end", text + "\n")
     log_box.configure(state="disabled")
     log_box.see("end")
+
+
+def update_server_info_label():
+    """Update the server info labels with host, server port, and discovery port"""
+    server_host_label.configure(text=f"Host: {SERVER_HOST}")
+    server_port_label.configure(text=f"Server Port: {SERVER_PORT}")
+    discovery_port_label.configure(text=f"Discovery Port: {DISCOVERY_PORT}")
 
 
 def update_user_list():

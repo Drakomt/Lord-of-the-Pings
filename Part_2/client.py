@@ -81,20 +81,14 @@ DISCOVERY_PORT = 9001
 DISCOVERY_TIMEOUT = 10
 DISCOVERY_PREFIX = "LOTP_SERVER|"
 DISCOVERY_RETRY_INTERVAL = int(os.environ.get("DISCOVERY_RETRY_INTERVAL", "3"))
-# Maximum time to wait for discovery before optional localhost fallback (configurable via env)
-DISCOVERY_FORCE_TIMEOUT = int(os.environ.get("DISCOVERY_FORCE_TIMEOUT", "20"))
 user_avatars = {}   # username -> avatar filename
 
 # ====== SERVER CONFIG ======
 # Priority 1: Check if env vars are set - if yes, use them as manual override (skip discovery)
 # Priority 2: Otherwise, use broadcast discovery
-# Priority 3: If discovery times out and LOCALHOST_FALLBACK=true, switch to localhost
 ENV_HOST = os.environ.get("HOST")
-ENV_PORT = os.environ.get("SERVER_PORT")
-USE_ENV_OVERRIDE = ENV_HOST is not None and ENV_PORT is not None
-# Localhost fallback after timeout: enabled by default, can be disabled via env
-LOCALHOST_FALLBACK = os.environ.get(
-    "LOCALHOST_FALLBACK", "true").lower() == "true"
+ENV_PORT = os.environ.get("SERVER_PORT", "9000")
+USE_ENV_OVERRIDE = ENV_HOST is not None
 
 if USE_ENV_OVERRIDE:
     HOST = ENV_HOST
@@ -809,12 +803,10 @@ def find_server():
 def start_discovery():
     """
     Starts server discovery in a background thread.
-    Handles both broadcast discovery and ENV override with optional localhost fallback.
+    Uses ENV override if set, otherwise attempts broadcast discovery.
     """
     def worker():
-        global discovery_thread_stop, HOST, SERVER_PORT, DISCOVERED, DISCOVERY_START_TIME
-        DISCOVERY_START_TIME = time.time()
-        timeout_action_taken = False
+        global discovery_thread_stop, HOST, SERVER_PORT, DISCOVERED
 
         # If env override is set, use it immediately
         if USE_ENV_OVERRIDE:
@@ -822,66 +814,24 @@ def start_discovery():
             SERVER_PORT = int(ENV_PORT)
             DISCOVERED = True
             print(f"[Discovery] Using env override: {HOST}:{SERVER_PORT}")
-            # Don't stop yet - continue monitoring for fallback
-        else:
-            # Start broadcast discovery
-            while not discovery_thread_stop:
-                # If discovery took too long, optionally fallback to localhost; otherwise keep searching
-                if (not timeout_action_taken) and (time.time() - DISCOVERY_START_TIME > DISCOVERY_FORCE_TIMEOUT):
-                    timeout_action_taken = True
-                    if LOCALHOST_FALLBACK:
-                        fallback_port = int(
-                            os.environ.get("SERVER_PORT", 9000))
-                        print(
-                            f"[Discovery] Timeout after {DISCOVERY_FORCE_TIMEOUT}s, falling back to localhost:{fallback_port}")
-                        HOST = "127.0.0.1"
-                        SERVER_PORT = fallback_port
-                        DISCOVERED = True
-                        break
-                    else:
-                        print(
-                            f"[Discovery] Timeout after {DISCOVERY_FORCE_TIMEOUT}s, continuing search (no localhost fallback)")
+            return  # Stop discovery once set
 
-                result = find_server()
-
-                if result:
-                    server_ip, server_port = result
-                    HOST = server_ip
-                    SERVER_PORT = server_port
-                    DISCOVERED = True
-                    print(
-                        f"[Discovery] Found server via broadcast at {HOST}:{SERVER_PORT}")
-                    break  # Stop searching once found
-                else:
-                    # Not found, wait before retrying
-                    if not discovery_thread_stop:
-                        time.sleep(DISCOVERY_RETRY_INTERVAL)
-
-            return  # Exit early for broadcast mode
-
-        # ENV override mode: monitor for fallback
+        # Start broadcast discovery
         while not discovery_thread_stop:
-            if (not timeout_action_taken) and (time.time() - DISCOVERY_START_TIME > DISCOVERY_FORCE_TIMEOUT):
-                timeout_action_taken = True
-                # After timeout, check if env IP is reachable
-                if not server_online():
-                    if LOCALHOST_FALLBACK:
-                        fallback_port = int(
-                            os.environ.get("SERVER_PORT", 9000))
-                        print(
-                            f"[Discovery] ENV override unreachable after {DISCOVERY_FORCE_TIMEOUT}s, falling back to localhost:{fallback_port}")
-                        HOST = "127.0.0.1"
-                        SERVER_PORT = fallback_port
-                    else:
-                        print(
-                            f"[Discovery] ENV override {ENV_HOST}:{ENV_PORT} unreachable, but LOCALHOST_FALLBACK=false, continuing with original")
-                else:
-                    print(
-                        f"[Discovery] ENV override {HOST}:{SERVER_PORT} is online")
+            result = find_server()
 
-            # Check periodically in case manual IP comes back up
-            if not discovery_thread_stop:
-                time.sleep(DISCOVERY_RETRY_INTERVAL)
+            if result:
+                server_ip, server_port = result
+                HOST = server_ip
+                SERVER_PORT = server_port
+                DISCOVERED = True
+                print(
+                    f"[Discovery] Found server via broadcast at {HOST}:{SERVER_PORT}")
+                break  # Stop searching once found
+            else:
+                # Not found, wait before retrying
+                if not discovery_thread_stop:
+                    time.sleep(DISCOVERY_RETRY_INTERVAL)
 
     threading.Thread(target=worker, daemon=True).start()
 

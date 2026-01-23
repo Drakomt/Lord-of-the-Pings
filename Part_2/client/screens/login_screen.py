@@ -22,8 +22,14 @@ from kivy.uix.textinput import TextInput
 
 from client.core import state
 from client.config.constants import ALERT_COLOR, BASE_BG, DARK_BG2, OWN_COLOR, TEXT_PRIMARY
-from client.core.discovery import server_online, stop_discovery, restart_discovery
+from client.core.discovery import stop_discovery, restart_discovery
 from client.core.protocol import parse_json_message
+
+# Global status socket - created when entering login screen, closed when leaving
+_status_socket = None
+_status_socket_connected = False
+_status_check_thread = None
+_stop_status_check = False
 
 
 class LoginScreen(Screen):
@@ -37,23 +43,115 @@ class LoginScreen(Screen):
 
     def on_enter(self):
         """Initialize login screen and start server connectivity checks."""
-        threading.Thread(target=self.perform_ping, daemon=True).start()
-        Clock.schedule_interval(self.check_status, 1)
+        global _stop_status_check, _status_check_thread
+
+        Clock.schedule_interval(self.check_status, 0.5)
+
+        # Start background thread only if not already running
+        if _status_check_thread is None or not _status_check_thread.is_alive():
+            _stop_status_check = False
+            _status_check_thread = threading.Thread(
+                target=self.maintain_status_socket, daemon=True)
+            _status_check_thread.start()
         Clock.schedule_once(lambda dt: setattr(
             self.ids.username_input, "focus", True), 0.2)
 
     def on_leave(self):
-        """Clean up scheduled tasks when leaving login screen."""
+        """Clean up scheduled tasks and stop status socket when leaving login screen."""
         Clock.unschedule(self.check_status)
+        self.stop_status_socket()
+
+    def stop_status_socket(self):
+        """Stop the status monitoring socket and thread."""
+        global _status_socket, _status_socket_connected, _stop_status_check
+
+        # Signal thread to stop
+        _stop_status_check = True
+
+        # Close socket
+        if _status_socket:
+            try:
+                _status_socket.close()
+            except Exception:
+                pass
+            _status_socket = None
+        _status_socket_connected = False
+
+    def maintain_status_socket(self):
+        """Maintain a persistent status socket to monitor server connectivity.
+
+        Creates ONE socket when server is available and keeps it alive.
+        Only recreates if the socket breaks (server goes down).
+        """
+        import time
+        global _status_socket, _status_socket_connected, _stop_status_check
+
+        while not _stop_status_check:
+            # Only try to create socket if we don't have one
+            if not _status_socket_connected:
+                if state.HOST and state.SERVER_PORT:
+                    try:
+                        # Attempt to create status socket
+                        print(
+                            f"[STATUS] Attempting connection to {state.HOST}:{state.SERVER_PORT}")
+                        sock = socket.socket(
+                            socket.AF_INET, socket.SOCK_STREAM)
+                        sock.settimeout(2.0)
+                        sock.connect((state.HOST, state.SERVER_PORT))
+
+                        # Connection successful - mark as connected
+                        _status_socket = sock
+                        _status_socket_connected = True
+                        print(
+                            f"[STATUS] Connected! Socket will stay alive until server disconnects")
+
+                        # Set socket to non-blocking for monitoring
+                        sock.setblocking(False)
+
+                        # Now monitor this socket - it stays alive until server dies
+                        while not _stop_status_check:
+                            try:
+                                # Try to peek at socket to see if it's still alive
+                                data = sock.recv(1, socket.MSG_PEEK)
+                                if not data:
+                                    # Socket closed by server
+                                    print("[STATUS] Server closed connection")
+                                    break
+                            except BlockingIOError:
+                                # No data available, socket still alive
+                                pass
+                            except Exception as e:
+                                # Socket error, connection lost
+                                print(f"[STATUS] Connection lost: {e}")
+                                break
+
+                            time.sleep(0.5)
+
+                        # Socket broke - close and mark as disconnected
+                        print("[STATUS] Closing socket, will retry...")
+                        self.stop_status_socket()
+                        # Restart discovery to find server again (unless manual override)
+                        if not state.manual_override_mode:
+                            restart_discovery()
+
+                    except Exception as e:
+                        # Connection failed (server not available)
+                        print(f"[STATUS] Connection failed: {e}")
+                        self.stop_status_socket()
+                        # Wait longer before retry to reduce SYN packet spam
+                        time.sleep(3)
+                else:
+                    # No server configured yet
+                    time.sleep(0.5)
+            else:
+                # Socket is connected, just wait
+                time.sleep(0.5)
 
     def check_status(self, _dt):
-        """Periodically check server status."""
-        threading.Thread(target=self.perform_ping, daemon=True).start()
-
-    def perform_ping(self):
-        """Check if server is online and update UI."""
-        online = server_online()
-        Clock.schedule_once(lambda dt: self.update_label(online))
+        """Check current socket status and update UI."""
+        global _status_socket_connected
+        Clock.schedule_once(
+            lambda dt: self.update_label(_status_socket_connected))
 
     def update_label(self, online):
         """Update server status label based on connectivity."""
@@ -523,7 +621,9 @@ class LoginScreen(Screen):
 
         self.ids.error_label.text = ""
 
-        if not server_online():
+        # Check if status socket is connected (server is online)
+        global _status_socket_connected
+        if not _status_socket_connected:
             self.show_server_offline_popup()
             return
 

@@ -8,7 +8,6 @@ from .config import (
     PREFERRED_PORT,
     SERVER_HOST,
     TEXT_COLOR,
-    DISCOVERY_PORT_AUTO_FALLBACK,
     SERVER_PORT_AUTO_FALLBACK,
 )
 from .ports import find_available_discovery_port, find_available_port
@@ -23,7 +22,6 @@ __all__ = [
     "PREFERRED_PORT",
     "SERVER_HOST",
     "TEXT_COLOR",
-    "DISCOVERY_PORT_AUTO_FALLBACK",
     "SERVER_PORT_AUTO_FALLBACK",
     "find_available_discovery_port",
     "find_available_port",

@@ -17,8 +17,6 @@ SERVER_PORT_AUTO_FALLBACK = os.environ.get(
 
 # UDP Discovery broadcast configuration
 PREFERRED_DISCOVERY_PORT = int(os.environ.get("DISCOVERY_PORT", 9001))
-DISCOVERY_PORT_AUTO_FALLBACK = os.environ.get(
-    "DISCOVERY_PORT_AUTO_FALLBACK", "true").lower() == "true"
 DISCOVERY_INTERVAL = 2  # seconds between broadcasts
 
 # Server admin GUI theme colors

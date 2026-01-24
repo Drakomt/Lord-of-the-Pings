@@ -96,33 +96,33 @@ def start_discovery():
 
     Tries to find the server via UDP broadcast or environment override.
     If using ENV override or manual override, sets that immediately. Otherwise, searches network.
+    Stops discovery once status socket is established.
     """
 
     def worker():
         """Background worker thread for server discovery."""
+        # Manual override - skip discovery entirely
+        if state.manual_override_mode:
+            state.HOST = state.manual_override_ip
+            state.SERVER_PORT = state.manual_override_port
+            state.DISCOVERED = True
+            return
+
+        # ENV override - set and don't discover
+        if config.USE_ENV_OVERRIDE:
+            state.HOST = config.ENV_HOST
+            state.SERVER_PORT = int(config.ENV_PORT)
+            state.DISCOVERED = True
+            return
+
+        # UDP Discovery - keep trying until discovery succeeds
         while not state.discovery_thread_stop:
-            # Manual override takes highest precedence (skip discovery entirely)
-            if state.manual_override_mode:
-                state.HOST = state.manual_override_ip
-                state.SERVER_PORT = state.manual_override_port
+            result = find_server()
+            if result:
+                server_ip, server_port = result
+                state.HOST = server_ip
+                state.SERVER_PORT = server_port
                 state.DISCOVERED = True
-                break
-
-            # Try to discover (env override wins, otherwise broadcast)
-            if config.USE_ENV_OVERRIDE:
-                state.HOST = config.ENV_HOST
-                state.SERVER_PORT = int(config.ENV_PORT)
-                state.DISCOVERED = True
-            else:
-                result = find_server()
-                if result:
-                    server_ip, server_port = result
-                    state.HOST = server_ip
-                    state.SERVER_PORT = server_port
-                    state.DISCOVERED = True
-
-            # If we have a target, stop this discovery thread
-            if state.DISCOVERED or state.discovery_thread_stop:
                 break
 
             # Retry interval before next attempt

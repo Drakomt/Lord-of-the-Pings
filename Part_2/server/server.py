@@ -26,7 +26,6 @@ from server.config import (
     PREFERRED_PORT,
     SERVER_HOST,
     TEXT_COLOR,
-    DISCOVERY_PORT_AUTO_FALLBACK,
     SERVER_PORT_AUTO_FALLBACK,
     find_available_discovery_port,
     find_available_port,
@@ -69,7 +68,7 @@ def update_user_list():
 
 def update_server_info_label():
     """Update the server info labels with host, server port, and discovery port."""
-    server_host_label.configure(text=f"Host: {SERVER_HOST}")
+    server_host_label.configure(text=f"Server Host: {SERVER_HOST}")
     server_port_label.configure(text=f"Server Port: {state.SERVER_PORT}")
     discovery_port_label.configure(
         text=f"Discovery Port: {state.DISCOVERY_PORT}")
@@ -333,9 +332,54 @@ def handle_client(client_socket, address):
     """
     username = None
     try:
-        username = client_socket.recv(1024).decode().strip()
+        # Set a longer timeout for receiving username to allow status sockets
+        # Status sockets never send data, so they need to stay connected
+        client_socket.settimeout(None)  # No timeout - wait indefinitely
+
+        # Try to receive username with a peek first to see if data is coming
+        client_socket.setblocking(False)
+        import select
+        import time
+
+        # Wait up to 3 seconds to see if client sends data
+        start_time = time.time()
+        has_data = False
+        while time.time() - start_time < 3.0:
+            readable, _, _ = select.select([client_socket], [], [], 0.5)
+            if readable:
+                has_data = True
+                break
+
+        client_socket.setblocking(True)
+
+        if has_data:
+            # Client is sending data (username)
+            client_socket.settimeout(2.0)
+            username = client_socket.recv(1024).decode().strip()
+            client_socket.settimeout(None)
+        else:
+            # No data sent - this is a status socket
+            username = ""
+
         if not username:
-            client_socket.close()
+            # Empty username - status monitoring socket
+            # Keep it alive indefinitely for status monitoring
+            # Reset timeout to None so it doesn't close after 2 seconds
+            client_socket.settimeout(None)
+            try:
+                # Just keep socket open, blocking on recv until client closes
+                while True:
+                    data = client_socket.recv(1024)
+                    if not data:
+                        # Client closed connection
+                        break
+            except Exception:
+                pass
+            finally:
+                try:
+                    client_socket.close()
+                except Exception:
+                    pass
             return
 
         with state.clients_lock:
@@ -352,9 +396,6 @@ def handle_client(client_socket, address):
             "SYSTEM", {"text": f"{username} joined the chat", "chat_id": "general"})
         update_user_list()
         broadcast_user_list()
-        broadcast_avatars_to_client(client_socket)
-        broadcast_new_user_avatar(username)
-
         broadcast_avatars_to_client(client_socket)
         broadcast_new_user_avatar(username)
 
@@ -424,7 +465,6 @@ def server_thread():
 
     state.DISCOVERY_PORT = find_available_discovery_port(
         PREFERRED_DISCOVERY_PORT,
-        allow_fallback=DISCOVERY_PORT_AUTO_FALLBACK,
     )
     if state.DISCOVERY_PORT is None:
         log(

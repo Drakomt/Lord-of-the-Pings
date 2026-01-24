@@ -279,7 +279,7 @@ HOST=127.0.0.1
 כל מנה נארזה בתוך כותרת IPv4.
 * **פרוטוקול:** השדה מציין '6', מה שמעיד שה-IP נושא בתוכו פרוטוקול TCP.
 
-<img src="Readme_img/msg_data.png" width="50%">
+<img src="Readme_img/img_ip6.png" width="70%">
 
 ---
 

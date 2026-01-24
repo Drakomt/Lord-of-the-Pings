@@ -262,20 +262,23 @@ HOST=127.0.0.1
 הנתונים שנלכדו הם אובייקטי JSON. ב-Wireshark ניתן לראות את המחרוזת הגולמית בתוך ה-TCP Data.
 * **מה רואים:** את השדות `type` ו-`data` בפורמט טקסט קריא (ASCII).
 
-<img src="Readme_img/jason_dump.png" width="40%">
+<img src="Readme_img/jason_dump.png" width="70%">
 
 ### 2. שכבת התעבורה (Transport) - TCP
 כאן ניתן לראות את ניהול הקשר האמין:
 * **Three-way Handshake:** נצפו מנות SYN, SYN-ACK ו-ACK בתחילת ההתחברות.
 * **פורטים:** השרת מאזין בפורט 55555 והלקוח משתמש בפורט דינמי גבוה.
 * **Flags:** שימוש בדגל PSH (Push) כדי להבטיח שהודעת הצ'אט תגיע מיד לממשק המשתמש.
-<img src="Readme_img/long boi.png" width="40%">
-<img src="Readme_img/project juan.png" width="40%">
+       
+<img src="Readme_img/long boi.png" width="70%">
+
+<img src="Readme_img/project juan.png" width="70%">
 
 ### 3. שכבת הרשת (Network) - IP
 כל מנה נארזה בתוך כותרת IPv4.
 * **Protocol:** השדה מציין '6', מה שמעיד שה-IP נושא בתוכו פרוטוקול TCP.
-<img src="Readme_img/msg_data.png" width="40%">
+
+<img src="Readme_img/msg_data.png" width="50%">
 
 ---
 

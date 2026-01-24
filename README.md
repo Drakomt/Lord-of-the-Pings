@@ -261,19 +261,21 @@ HOST=127.0.0.1
 ### 1. שכבת האפליקציה (Application) - Payload
 הנתונים שנלכדו הם אובייקטי JSON. ב-Wireshark ניתן לראות את המחרוזת הגולמית בתוך ה-TCP Data.
 * **מה רואים:** את השדות `type` ו-`data` בפורמט טקסט קריא (ASCII).
-**[מקום לתמונה: צילום מסך של חלון ה-Hex Dump המראה את תוכן הודעת ה-JSON]**
+
+<img src="Readme_img/jason_dump.png" width="40%">
 
 ### 2. שכבת התעבורה (Transport) - TCP
 כאן ניתן לראות את ניהול הקשר האמין:
 * **Three-way Handshake:** נצפו מנות SYN, SYN-ACK ו-ACK בתחילת ההתחברות.
 * **פורטים:** השרת מאזין בפורט 55555 והלקוח משתמש בפורט דינמי גבוה.
 * **Flags:** שימוש בדגל PSH (Push) כדי להבטיח שהודעת הצ'אט תגיע מיד לממשק המשתמש.
-**[מקום לתמונה: צילום מסך של כותרת ה-TCP המראה את הפורטים ואת דגל ה-PSH]**
+<img src="Readme_img/long boi.png" width="40%">
+<img src="Readme_img/project juan.png" width="40%">
 
 ### 3. שכבת הרשת (Network) - IP
 כל מנה נארזה בתוך כותרת IPv4.
 * **Protocol:** השדה מציין '6', מה שמעיד שה-IP נושא בתוכו פרוטוקול TCP.
-**[מקום לתמונה: צילום מסך של כותרת ה-IP המראה את כתובות הלופבק וה-Checksum]**
+<img src="Readme_img/msg_data.png" width="40%">
 
 ---
 

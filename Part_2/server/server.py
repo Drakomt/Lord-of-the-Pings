@@ -26,7 +26,6 @@ from server.config import (
     PREFERRED_PORT,
     SERVER_HOST,
     TEXT_COLOR,
-    DISCOVERY_PORT_AUTO_FALLBACK,
     SERVER_PORT_AUTO_FALLBACK,
     find_available_discovery_port,
     find_available_port,
@@ -69,7 +68,7 @@ def update_user_list():
 
 def update_server_info_label():
     """Update the server info labels with host, server port, and discovery port."""
-    server_host_label.configure(text=f"Host: {SERVER_HOST}")
+    server_host_label.configure(text=f"Server Host: {SERVER_HOST}")
     server_port_label.configure(text=f"Server Port: {state.SERVER_PORT}")
     discovery_port_label.configure(
         text=f"Discovery Port: {state.DISCOVERY_PORT}")
@@ -466,7 +465,6 @@ def server_thread():
 
     state.DISCOVERY_PORT = find_available_discovery_port(
         PREFERRED_DISCOVERY_PORT,
-        allow_fallback=DISCOVERY_PORT_AUTO_FALLBACK,
     )
     if state.DISCOVERY_PORT is None:
         log(

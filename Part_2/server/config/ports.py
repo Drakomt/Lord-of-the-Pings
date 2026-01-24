@@ -11,7 +11,6 @@ from .config import (
     PREFERRED_PORT,
     SERVER_HOST,
     SERVER_PORT_AUTO_FALLBACK,
-    DISCOVERY_PORT_AUTO_FALLBACK,
 )
 
 

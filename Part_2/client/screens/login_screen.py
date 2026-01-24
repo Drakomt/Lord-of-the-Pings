@@ -121,7 +121,7 @@ class LoginScreen(Screen):
                             # Check if socket was closed externally (e.g., manual override)
                             if _status_socket is None:
                                 break
-                            
+
                             try:
                                 # Try to peek at socket to see if it's still alive
                                 data = sock.recv(1, socket.MSG_PEEK)
@@ -444,7 +444,7 @@ class LoginScreen(Screen):
             title="Server Manual Override",
             content=content,
             size_hint=(None, None),
-            size=(dp(300), dp(280)),
+            size=(dp(500), dp(480)),
             auto_dismiss=False,
             title_align='center',
             separator_color=OWN_COLOR
@@ -644,10 +644,15 @@ class LoginScreen(Screen):
         app = App.get_running_app()
         prebuffer = b""
         try:
+            # Drop the status socket so the next connect is the real login socket
+            self._close_status_socket_only()
+
             # Connect to server and send username
-            app.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            app.sock.connect((state.HOST, state.SERVER_PORT))
-            app.sock.sendall(username.encode())
+            app.sock = socket.create_connection(
+                (state.HOST, state.SERVER_PORT), timeout=2.0
+            )
+            # Send username with a newline to guarantee the server reads it immediately
+            app.sock.sendall((username + "\n").encode())
             app.sock.settimeout(0.4)
 
             # Receive initial messages (user list, avatars)

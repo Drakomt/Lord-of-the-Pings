@@ -2,7 +2,11 @@
 
 ![img_5.png](Readme_img/img_5.png)
 ## 🌐 Network Communication Project – TCP/IP, Wireshark & Socket Programming
-
+---
+**מגישים:** 
+- נתנאל ציפלקוב
+- מתתיהו ציפלקוב 
+- טוני עתמה 
 ---
 
 ## סקירה כללית
